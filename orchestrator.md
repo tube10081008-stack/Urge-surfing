@@ -36,6 +36,9 @@
 | 🗄️ Backend/Data | [`backend-data.md`](./agents/backend-data.md) | DB 스키마·임상 대시보드 API·성과지표 |
 | 📱 Native Integration | [`native-integration.md`](./agents/native-integration.md) | OS레벨 도박앱 차단·헬퍼 알림 |
 | 🩺 Clinical & Safety | [`clinical-safety.md`](./agents/clinical-safety.md) | 의학적 근거·식약처 규제·위기 대응·윤리 |
+| 🧠 Knowledge & RAG | [`knowledge-rag.md`](./agents/knowledge-rag.md) | 전 에이전트 지식 증강(RAG)·MedGraphRAG·근거 인용 |
+
+> 📎 지식 근거: [참고문헌](./references.md) · 정합성: [검증 리포트](./verification-report.md)
 
 > **유기체 원리:** 각 에이전트는 자율적이되, ① 이 문서의 확정 결정을 따르고 ② 협업 인터페이스(입력/산출)를 통해 데이터를 주고받으며 ③ 안전·규제 사안은 반드시 Clinical & Safety의 승인을 거친다.
 

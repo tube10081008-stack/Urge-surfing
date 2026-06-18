@@ -24,6 +24,9 @@
 | 🗄️ **Backend/Data** | [`agents/backend-data.md`](./agents/backend-data.md) | **DB 스키마·DTx 대시보드 API**·성과지표 |
 | 📱 **Native Integration** | [`agents/native-integration.md`](./agents/native-integration.md) | **App Blocker 권한·백그라운드 차단**·헬퍼 알림 |
 | 🩺 **Clinical & Safety** | [`agents/clinical-safety.md`](./agents/clinical-safety.md) | 의학근거·식약처 규제·**위기 대응(1336)**·윤리 |
+| 🧠 **Knowledge & RAG** | [`agents/knowledge-rag.md`](./agents/knowledge-rag.md) | 전 에이전트 **지식 증강(RAG)**·MedGraphRAG·근거 인용 |
+
+> 📎 **부속 문서:** [참고문헌(RAG 근거 3편)](./references.md) · [검증 리포트](./verification-report.md)
 
 ---
 
