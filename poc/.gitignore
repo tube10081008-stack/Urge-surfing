@@ -6,6 +6,7 @@ venv/
 *.sqlite3
 db.sqlite3
 .env
+backend/staticfiles/
 
 # Flutter / Dart
 app/.dart_tool/

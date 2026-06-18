@@ -12,8 +12,14 @@ import '../models/vas_record.dart';
 /// - Android 에뮬레이터에서 로컬 백엔드 접속 시: http://10.0.2.2:8000/api/v1
 /// - iOS 시뮬레이터 / 데스크톱 / 웹: http://localhost:8000/api/v1
 class ApiClient {
-  /// PoC 백엔드 기본 주소. 환경에 맞게 수정하세요.
-  static const String baseUrl = 'http://localhost:8000/api/v1';
+  /// 백엔드 기본 주소.
+  ///
+  /// 빌드 시 `--dart-define=API_BASE_URL=https://api.example.com/api/v1` 로 주입한다.
+  /// 미주입 시 로컬 개발 기본값(localhost) 사용.
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8000/api/v1',
+  );
 
   final http.Client _http;
 

@@ -1,0 +1,34 @@
+# 운영 유사 로컬 실행: PostgreSQL + Gunicorn 백엔드
+# 사용: docker compose up --build  →  http://localhost:8000/api/v1/exposure-media
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dtx}
+      POSTGRES_USER: ${POSTGRES_USER:-dtx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dtx_dev_password}
+    volumes:
+      - dtx_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dtx}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-in-prod}
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DATABASE_URL: postgres://${POSTGRES_USER:-dtx}:${POSTGRES_PASSWORD:-dtx_dev_password}@db:5432/${POSTGRES_DB:-dtx}
+      # 로컬 compose는 https 리다이렉트 끔 (역프록시 없음)
+      DJANGO_SECURE_SSL_REDIRECT: "False"
+    ports:
+      - "8000:8000"
+
+volumes:
+  dtx_pgdata:

@@ -1,0 +1,80 @@
+name: Build Android APK
+
+# 수동 실행 + main/작업 브랜치 push 시 APK 빌드.
+# 앱에 android/ 플랫폼 폴더가 없으므로 CI에서 `flutter create`로 생성 후 빌드한다.
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "백엔드 API Base URL (--dart-define API_BASE_URL)"
+        required: false
+        default: "http://10.0.2.2:8000/api/v1"
+  push:
+    branches:
+      - main
+      - "claude/**"
+    paths:
+      - "poc/app/**"
+      - ".github/workflows/build-apk.yml"
+
+env:
+  FLUTTER_VERSION: "3.24.0"
+  APP_DIR: poc/app
+  # 앱 패키지 식별자 (스토어/설치 식별용)
+  APP_ORG: io.dtxgambling
+  APP_PROJECT_NAME: dtx_gambling_poc
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+
+      - name: JDK 17 설정
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Flutter 설정
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Android 플랫폼 생성 (android/ 폴더 없으므로)
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          if [ ! -d android ]; then
+            flutter create \
+              --org "${{ env.APP_ORG }}" \
+              --project-name "${{ env.APP_PROJECT_NAME }}" \
+              --platforms=android \
+              .
+          fi
+
+      - name: 의존성 설치
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter pub get
+
+      - name: 정적 분석
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings || true
+
+      - name: APK 빌드 (release, 기본 debug 서명)
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          API_URL="${{ github.event.inputs.api_base_url }}"
+          API_URL="${API_URL:-http://10.0.2.2:8000/api/v1}"
+          flutter build apk --release \
+            --dart-define=API_BASE_URL="$API_URL"
+
+      - name: APK 아티팩트 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: dtx-gambling-apk
+          path: ${{ env.APP_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
