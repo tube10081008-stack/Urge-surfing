@@ -19,7 +19,7 @@ class ApiClient {
   /// 미주입 시 로컬 개발 기본값(localhost) 사용.
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8000/api/v1',
+    defaultValue: 'https://urge-surfing-api.onrender.com/api/v1',
   );
 
   final http.Client _http;

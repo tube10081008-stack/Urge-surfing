@@ -8,7 +8,7 @@ on:
       api_base_url:
         description: "백엔드 API Base URL (--dart-define API_BASE_URL)"
         required: false
-        default: "http://10.0.2.2:8000/api/v1"
+        default: "https://urge-surfing-api.onrender.com/api/v1"
   push:
     branches:
       - main
@@ -66,8 +66,11 @@ jobs:
       - name: APK 빌드 (release, 기본 debug 서명)
         working-directory: ${{ env.APP_DIR }}
         run: |
+          # 기본은 Render 운영 주소. 로컬 에뮬레이터로 빌드하려면
+          # 수동 실행 시 api_base_url 에 http://10.0.2.2:8000/api/v1 입력.
           API_URL="${{ github.event.inputs.api_base_url }}"
-          API_URL="${API_URL:-http://10.0.2.2:8000/api/v1}"
+          API_URL="${API_URL:-https://urge-surfing-api.onrender.com/api/v1}"
+          echo "Building APK with API_BASE_URL=$API_URL"
           flutter build apk --release \
             --dart-define=API_BASE_URL="$API_URL"
 
