@@ -72,9 +72,11 @@ class SosButton extends StatelessWidget {
         heroTag: 'sos',
         backgroundColor: const Color(0xFFE0607A),
         foregroundColor: Colors.white,
+        elevation: 3,
         onPressed: () => _showDialog(context),
-        icon: const Icon(Icons.support_agent),
-        label: const Text('도움요청 1336'),
+        icon: const Icon(Icons.support_agent, size: 20),
+        label: const Text('도움 1336',
+            style: TextStyle(fontWeight: FontWeight.w600)),
       );
     }
     return OutlinedButton.icon(

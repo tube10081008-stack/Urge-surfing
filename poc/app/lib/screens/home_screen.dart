@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/session_controller.dart';
 import '../widgets/sos_button.dart';
+import 'dashboard_screen.dart';
 import 'vas_input_screen.dart';
 
 /// 홈 화면.
@@ -44,8 +45,18 @@ class HomeScreen extends ConsumerWidget {
         backgroundColor: const Color(0xFFF2F7FA),
         foregroundColor: const Color(0xFF2C5066),
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.insights),
+            tooltip: '내 기록',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const DashboardScreen()),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: const SosButton(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -144,7 +155,7 @@ class HomeScreen extends ConsumerWidget {
                               fontSize: 18, fontWeight: FontWeight.w600)),
                 ),
               ),
-              const SizedBox(height: 80), // SOS 버튼 공간
+              const SizedBox(height: 16),
             ],
           ),
         ),

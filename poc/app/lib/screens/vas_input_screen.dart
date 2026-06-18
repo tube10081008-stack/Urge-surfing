@@ -64,6 +64,7 @@ class _VasInputScreenState extends ConsumerState<VasInputScreen> {
         automaticallyImplyLeading: false,
       ),
       floatingActionButton: const SosButton(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -115,7 +116,7 @@ class _VasInputScreenState extends ConsumerState<VasInputScreen> {
                               fontSize: 18, fontWeight: FontWeight.w600)),
                 ),
               ),
-              const SizedBox(height: 80),
+              const SizedBox(height: 16),
             ],
           ),
         ),

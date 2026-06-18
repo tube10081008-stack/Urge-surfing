@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../models/exposure_media.dart';
 import '../models/training_session.dart';
 import '../models/vas_record.dart';
+import '../models/vas_trend.dart';
 
 /// 백엔드 REST 클라이언트.
 ///
@@ -112,6 +113,18 @@ class ApiClient {
       }),
     );
     return (_decode(res) as Map<String, dynamic>);
+  }
+
+  /// GET /dashboard/vas-trend → 일자별 갈망 추세
+  Future<List<VasTrendPoint>> fetchVasTrend() async {
+    final res = await _http.get(
+      _uri('/dashboard/vas-trend'),
+      headers: _jsonHeaders,
+    );
+    final data = _decode(res) as List<dynamic>;
+    return data
+        .map((e) => VasTrendPoint.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   void dispose() => _http.close();

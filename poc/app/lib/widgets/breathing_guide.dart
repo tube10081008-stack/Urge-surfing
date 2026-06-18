@@ -1,18 +1,30 @@
 import 'package:flutter/material.dart';
 
-/// 4-7-8 호흡 가이드.
+/// 호흡 가이드(확장/수축 원).
 ///
-/// 한 사이클 = 들이쉬기 4초 → 멈추기 7초 → 내쉬기 8초 (총 19초).
-/// - 들이쉬기: 원이 작게→크게 확장
-/// - 멈추기: 큰 상태 유지
-/// - 내쉬기: 원이 크게→작게 수축
+/// 한 사이클 = 들이쉬기 → 멈추기 → 내쉬기 → (선택)멈추기.
+/// - 기본값은 4-7-8 호흡(들숨4·멈춤7·날숨8, 마지막 멈춤 없음).
+/// - 박스 호흡은 4-4-4-4 (hold2=4)로 사용.
 /// 중앙 텍스트로 현재 단계와 카운트를 안내한다.
 enum _BreathPhase { inhale, hold, exhale }
 
 class BreathingGuide extends StatefulWidget {
   final Color color;
 
-  const BreathingGuide({super.key, this.color = const Color(0xFF7FB7D4)});
+  /// 각 단계 길이(초). hold2=0이면 마지막 멈춤 단계는 생략.
+  final int inhale;
+  final int hold1;
+  final int exhale;
+  final int hold2;
+
+  const BreathingGuide({
+    super.key,
+    this.color = const Color(0xFF7FB7D4),
+    this.inhale = 4,
+    this.hold1 = 7,
+    this.exhale = 8,
+    this.hold2 = 0,
+  });
 
   @override
   State<BreathingGuide> createState() => _BreathingGuideState();
@@ -20,19 +32,17 @@ class BreathingGuide extends StatefulWidget {
 
 class _BreathingGuideState extends State<BreathingGuide>
     with TickerProviderStateMixin {
-  static const int inhaleSec = 4;
-  static const int holdSec = 7;
-  static const int exhaleSec = 8;
-  static const int cycleSec = inhaleSec + holdSec + exhaleSec; // 19
+  late AnimationController _controller;
 
-  late final AnimationController _controller;
+  int get _cycleSec =>
+      widget.inhale + widget.hold1 + widget.exhale + widget.hold2;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: cycleSec),
+      duration: Duration(seconds: _cycleSec),
     )..repeat();
   }
 
@@ -44,27 +54,39 @@ class _BreathingGuideState extends State<BreathingGuide>
 
   /// 진행 비율(0~1)을 받아 현재 단계와 원 크기 비율(0.4~1.0)을 계산.
   ({_BreathPhase phase, double scale, int countdown}) _compute(double t) {
-    final elapsed = t * cycleSec; // 0~19초
-    if (elapsed < inhaleSec) {
-      final local = elapsed / inhaleSec; // 0→1
+    final elapsed = t * _cycleSec;
+    final i = widget.inhale;
+    final h1 = widget.hold1;
+    final e = widget.exhale;
+
+    if (elapsed < i) {
+      final local = elapsed / i; // 0→1
       return (
         phase: _BreathPhase.inhale,
         scale: 0.4 + 0.6 * local,
-        countdown: (inhaleSec - elapsed).ceil(),
+        countdown: (i - elapsed).ceil(),
       );
-    } else if (elapsed < inhaleSec + holdSec) {
-      final local = elapsed - inhaleSec;
+    } else if (elapsed < i + h1) {
+      final local = elapsed - i;
       return (
         phase: _BreathPhase.hold,
         scale: 1.0,
-        countdown: (holdSec - local).ceil(),
+        countdown: (h1 - local).ceil(),
       );
-    } else {
-      final local = elapsed - inhaleSec - holdSec; // 0→8
+    } else if (elapsed < i + h1 + e) {
+      final local = elapsed - i - h1; // 0→e
       return (
         phase: _BreathPhase.exhale,
-        scale: 1.0 - 0.6 * (local / exhaleSec),
-        countdown: (exhaleSec - local).ceil(),
+        scale: 1.0 - 0.6 * (local / e),
+        countdown: (e - local).ceil(),
+      );
+    } else {
+      // hold2 (박스 호흡의 날숨 후 멈춤)
+      final local = elapsed - i - h1 - e;
+      return (
+        phase: _BreathPhase.hold,
+        scale: 0.4,
+        countdown: (widget.hold2 - local).ceil(),
       );
     }
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/session_controller.dart';
 import '../widgets/sos_button.dart';
+import 'dashboard_screen.dart';
 
 /// 결과 화면.
 /// 사전/사후 갈망(VAS)을 비교하고, outcome(success/relapse)을 자동 판정하여 보여준다.
@@ -49,6 +50,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
         automaticallyImplyLeading: false,
       ),
       floatingActionButton: const SosButton(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -150,7 +152,18 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                           fontSize: 18, fontWeight: FontWeight.w600)),
                 ),
               ),
-              const SizedBox(height: 80),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                ),
+                icon: const Icon(Icons.insights, size: 18),
+                label: const Text('내 기록 보기'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF4F8FB0),
+                ),
+              ),
+              const SizedBox(height: 12),
             ],
           ),
         ),

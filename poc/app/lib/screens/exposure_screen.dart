@@ -59,6 +59,7 @@ class _ExposureScreenState extends ConsumerState<ExposureScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF1B2A38), // 차분한 다크 톤
       floatingActionButton: const SosButton(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
       body: SafeArea(
         child: Stack(
           children: [

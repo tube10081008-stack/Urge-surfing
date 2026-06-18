@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
 import '../models/exposure_media.dart';
 import '../models/training_session.dart';
+import '../models/vas_trend.dart';
 
 /// ApiClient 싱글턴 provider.
 final apiClientProvider = Provider<ApiClient>((ref) {
@@ -106,6 +107,11 @@ class SessionController extends StateNotifier<SessionState> {
   /// 사용할 노출 자극 선택.
   void selectMedia(ExposureMedia media) {
     state = state.copyWith(media: media, clearError: true);
+  }
+
+  /// 파도타기 대처 기술 선택(백엔드 coping_skill 로 전송).
+  void setCopingSkill(String key) {
+    state = state.copyWith(copingSkill: key);
   }
 
   /// 세션 생성(POST /training-sessions). PoC에서는 erp_exposure로 시작.
@@ -216,4 +222,12 @@ final exposureMediaProvider = FutureProvider<List<ExposureMedia>>((ref) async {
       assetRef: 'slot_reel',
     ),
   ];
+});
+
+/// 대시보드 VAS 추세 provider (GET /dashboard/vas-trend).
+/// 진입할 때마다 최신 기록을 다시 불러온다.
+final vasTrendProvider =
+    FutureProvider.autoDispose<List<VasTrendPoint>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  return api.fetchVasTrend();
 });
