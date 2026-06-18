@@ -55,6 +55,18 @@ jobs:
               .
           fi
 
+      - name: 인터넷 권한 추가 (release APK 네트워크 허용)
+        # flutter build apk --release 는 기본 manifest에 INTERNET 권한을
+        # 넣지 않아 네트워크가 차단된다. main manifest에 명시적으로 추가.
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
+            sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET"/>' "$MANIFEST"
+          fi
+          echo "----- AndroidManifest.xml (상단) -----"
+          head -n 6 "$MANIFEST"
+
       - name: 의존성 설치
         working-directory: ${{ env.APP_DIR }}
         run: flutter pub get
