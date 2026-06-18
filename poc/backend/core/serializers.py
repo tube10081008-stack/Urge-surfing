@@ -92,8 +92,12 @@ class UrgeSurfingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("peak_urge는 0~10 사이여야 합니다.")
         return value
 
-    def validate_session(self, session):
-        """세션당 충동 파도타기 결과는 1회만(OneToOne)."""
+    def validate_session_id(self, session):
+        """세션당 충동 파도타기 결과는 1회만(OneToOne).
+
+        주의: source="session"이지만 DRF의 필드별 검증 메서드는
+        시리얼라이저 필드명(session_id) 기준으로 매핑된다.
+        """
         if UrgeSurfingSession.objects.filter(session=session).exists():
             raise serializers.ValidationError(
                 "해당 세션에는 이미 충동 파도타기 결과가 존재합니다."
