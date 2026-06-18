@@ -1,0 +1,24 @@
+name: dtx_gambling_poc
+description: 도박중독 디지털 치료제(DTx) PoC — 노출/충동 파도타기/VAS 기록 (P0)
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # 상태관리
+  flutter_riverpod: ^2.5.1
+  # 네트워크
+  http: ^1.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
