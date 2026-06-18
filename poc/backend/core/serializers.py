@@ -22,20 +22,36 @@ class TrainingSessionCreateSerializer(serializers.ModelSerializer):
 
     요청: {session_type, media_id?}
     응답: {id, session_type, media_id, started_at, completed}
+
+    media_id는 관대하게 처리한다: 존재하지 않는 id가 와도 400 대신
+    media 없이 세션을 생성한다(앱이 폴백 더미 id를 보내는 경우 대비).
     """
 
-    # 입력은 media_id, 모델 필드는 media 이므로 source 매핑
-    media_id = serializers.PrimaryKeyRelatedField(
-        source="media",
-        queryset=ExposureMedia.objects.all(),
-        required=False,
-        allow_null=True,
-    )
+    # 입력 전용. 존재 검증을 강제하지 않으려고 IntegerField 사용.
+    media_id = serializers.IntegerField(required=False, allow_null=True)
 
     class Meta:
         model = TrainingSession
         fields = ["id", "session_type", "media_id", "started_at", "completed"]
         read_only_fields = ["id", "started_at", "completed"]
+
+    def create(self, validated_data):
+        media_pk = validated_data.pop("media_id", None)
+        media = (
+            ExposureMedia.objects.filter(pk=media_pk).first() if media_pk else None
+        )
+        return TrainingSession.objects.create(media=media, **validated_data)
+
+    def to_representation(self, instance):
+        return {
+            "id": instance.id,
+            "session_type": instance.session_type,
+            "media_id": instance.media_id,
+            "started_at": (
+                instance.started_at.isoformat() if instance.started_at else None
+            ),
+            "completed": instance.completed,
+        }
 
 
 class TrainingSessionCompleteSerializer(serializers.ModelSerializer):
