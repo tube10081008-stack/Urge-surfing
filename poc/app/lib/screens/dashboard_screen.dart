@@ -117,6 +117,15 @@ class _Content extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
+        // 라인 그래프(연습 전/후 추이)
+        _ChartLegend(),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 190,
+          child: _TrendChart(points: points),
+        ),
+        const SizedBox(height: 24),
+
         ...points.reversed.map((p) => _TrendRow(point: p)),
       ],
     );
@@ -318,4 +327,130 @@ class _Message extends StatelessWidget {
       ),
     );
   }
+}
+
+// 그래프 색상
+const _kPreColor = Color(0xFFE08A3C); // 연습 전(주황)
+const _kPostColor = Color(0xFF3FA796); // 연습 후(청록)
+
+/// 그래프 범례.
+class _ChartLegend extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    Widget dot(Color c, String label) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 12, height: 12,
+                decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF5A7A8C))),
+          ],
+        );
+    return Row(
+      children: [
+        dot(_kPreColor, '연습 전'),
+        const SizedBox(width: 20),
+        dot(_kPostColor, '연습 후'),
+      ],
+    );
+  }
+}
+
+/// 연습 전/후 갈망(0~10) 추이 라인 그래프.
+class _TrendChart extends StatelessWidget {
+  final List<VasTrendPoint> points;
+  const _TrendChart({required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.infinite,
+      painter: _TrendChartPainter(points),
+    );
+  }
+}
+
+class _TrendChartPainter extends CustomPainter {
+  final List<VasTrendPoint> points;
+  _TrendChartPainter(this.points);
+
+  static const double _maxV = 10;
+
+  String _shortDay(String day) {
+    final p = day.split('-');
+    return p.length == 3 ? '${p[1]}/${p[2]}' : day;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const padL = 26.0, padR = 10.0, padT = 10.0, padB = 22.0;
+    final plotW = size.width - padL - padR;
+    final plotH = size.height - padT - padB;
+
+    double yFor(double v) => padT + (1 - (v / _maxV)) * plotH;
+    double xFor(int i) =>
+        points.length == 1 ? padL + plotW / 2 : padL + (i / (points.length - 1)) * plotW;
+
+    final grid = Paint()
+      ..color = const Color(0xFFE6EDF1)
+      ..strokeWidth = 1;
+    final axisText = TextPainter(textDirection: TextDirection.ltr);
+
+    // 가로 그리드 + y 눈금(0,5,10)
+    for (final v in [0.0, 5.0, 10.0]) {
+      final y = yFor(v);
+      canvas.drawLine(Offset(padL, y), Offset(size.width - padR, y), grid);
+      axisText.text = TextSpan(
+        text: v.toInt().toString(),
+        style: const TextStyle(fontSize: 10, color: Color(0xFF9AB4C2)),
+      );
+      axisText.layout();
+      axisText.paint(canvas, Offset(padL - axisText.width - 4, y - axisText.height / 2));
+    }
+
+    // x축 날짜 라벨(첫·중간·마지막)
+    final labelIdx = <int>{0, points.length - 1, points.length ~/ 2};
+    for (final i in labelIdx) {
+      if (i < 0 || i >= points.length) continue;
+      axisText.text = TextSpan(
+        text: _shortDay(points[i].day),
+        style: const TextStyle(fontSize: 10, color: Color(0xFF9AB4C2)),
+      );
+      axisText.layout();
+      final x = (xFor(i) - axisText.width / 2)
+          .clamp(0.0, size.width - axisText.width);
+      axisText.paint(canvas, Offset(x, size.height - padB + 6));
+    }
+
+    void drawSeries(double? Function(VasTrendPoint) sel, Color color) {
+      final line = Paint()
+        ..color = color
+        ..strokeWidth = 2.5
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+      final dot = Paint()..color = color;
+
+      Offset? prev;
+      for (var i = 0; i < points.length; i++) {
+        final v = sel(points[i]);
+        if (v == null) {
+          prev = null;
+          continue;
+        }
+        final cur = Offset(xFor(i), yFor(v));
+        if (prev != null) canvas.drawLine(prev, cur, line);
+        canvas.drawCircle(cur, 3.5, dot);
+        canvas.drawCircle(cur, 1.6, Paint()..color = Colors.white);
+        prev = cur;
+      }
+    }
+
+    drawSeries((p) => p.avgPre, _kPreColor);
+    drawSeries((p) => p.avgPost, _kPostColor);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrendChartPainter old) =>
+      old.points != points;
 }
