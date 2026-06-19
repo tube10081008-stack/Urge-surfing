@@ -4,8 +4,8 @@ publish_to: "none"
 version: 0.1.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
-  flutter: ">=3.10.0"
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
 
 dependencies:
   flutter:
@@ -14,6 +14,8 @@ dependencies:
   flutter_riverpod: ^2.5.1
   # 네트워크
   http: ^1.2.1
+  # 노출 미디어(영상/오디오) 재생
+  video_player: ^2.8.0
 
 dev_dependencies:
   flutter_test:

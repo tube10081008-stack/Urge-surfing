@@ -25,8 +25,14 @@ class ExposureMedia(models.Model):
     category = models.CharField("카테고리", max_length=100)
     # 강도 1~5
     intensity = models.PositiveSmallIntegerField("강도(1~5)")
-    # 실제 에셋 참조(URL/경로/식별자) - PoC에서는 문자열로만 보관
-    asset_ref = models.CharField("에셋 참조", max_length=500)
+    # 실제 에셋 참조(레거시: 파일 경로/식별자)
+    asset_ref = models.CharField("에셋 참조", max_length=500, blank=True, default="")
+    # 실제 재생용 스트리밍 URL(영상/오디오/이미지). 비어 있으면 앱은 플레이스홀더로 대체.
+    media_url = models.URLField("미디어 URL", max_length=1000, blank=True, default="")
+    # 노출 전 표시할 맞춤 주의 문구(비우면 기본 문구 사용)
+    content_warning = models.CharField(
+        "주의 문구", max_length=300, blank=True, default=""
+    )
 
     class Meta:
         verbose_name = "노출 자극 미디어"

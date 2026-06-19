@@ -14,7 +14,16 @@ class ExposureMediaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ExposureMedia
-        fields = ["id", "title", "media_type", "category", "intensity", "asset_ref"]
+        fields = [
+            "id",
+            "title",
+            "media_type",
+            "category",
+            "intensity",
+            "asset_ref",
+            "media_url",
+            "content_warning",
+        ]
 
 
 class TrainingSessionCreateSerializer(serializers.ModelSerializer):

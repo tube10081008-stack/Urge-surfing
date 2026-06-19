@@ -11,8 +11,22 @@ from .models import (
 
 @admin.register(ExposureMedia)
 class ExposureMediaAdmin(admin.ModelAdmin):
-    list_display = ("id", "title", "media_type", "category", "intensity")
+    list_display = ("id", "title", "media_type", "category", "intensity", "has_url")
     list_filter = ("media_type", "category")
+    search_fields = ("title", "category", "media_url")
+    fields = (
+        "title",
+        "media_type",
+        "category",
+        "intensity",
+        "media_url",
+        "content_warning",
+        "asset_ref",
+    )
+
+    @admin.display(boolean=True, description="URL 등록됨")
+    def has_url(self, obj):
+        return bool(obj.media_url)
 
 
 @admin.register(TrainingSession)
