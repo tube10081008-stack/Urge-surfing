@@ -6,7 +6,6 @@
 스텁 환경에서도 grounded 텍스트가 결정적으로 나오도록 호출부가 초안을 만든다.
 """
 from .corpus import retrieve
-from .llm import GENERATOR_MODEL
 
 PERSONA_META = {
     "acq": {"emoji": "🎣", "name": "획득", "kpi": "신규유입·노출·리뷰수"},
@@ -71,16 +70,18 @@ def advise(persona: str, card: dict, provider, meter) -> dict:
         f"[베이스라인]\n{card}\n\n[근거 코퍼스]\n{cite_lines}\n\n"
         f"[초안 액션]\n{draft}\n\n위 초안을 사장님이 바로 실행할 1~2개 액션으로 다듬어라."
     )
-    text, usage = provider.complete(model=GENERATOR_MODEL, system=system, prompt=prompt, max_tokens=500)
+    text, usage = provider.complete(
+        model=provider.generator_model, system=system, prompt=prompt, max_tokens=900
+    )
     meter.add(usage)
 
     # 스텁이면 prompt를 그대로 돌려주므로 결정적 draft를 표면화
-    surfaced = draft if provider.name == "stub" else text
+    surfaced = draft if provider.name == "stub" else (text or draft)
     return {
         "persona": persona,
         "label": f"{PERSONA_META[persona]['emoji']} {PERSONA_META[persona]['name']}",
         "kpi": PERSONA_META[persona]["kpi"],
         "action": surfaced,
         "citations": [e.mid for e in evidences],
-        "generator_model": GENERATOR_MODEL,
+        "generator_model": provider.generator_model,
     }

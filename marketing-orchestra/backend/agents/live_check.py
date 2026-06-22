@@ -15,20 +15,20 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
-from agents.llm import GENERATOR_MODEL, ROUTER_MODEL, get_provider  # noqa: E402
+from agents.llm import get_provider  # noqa: E402
 
 
 def main() -> int:
     provider = get_provider()
-    print(f"provider = {provider.name} (router={ROUTER_MODEL}, generator={GENERATOR_MODEL})")
-    if provider.name != "anthropic":
-        print("⚠️  StubProvider로 동작 중 — ANTHROPIC_API_KEY 미설정이거나 SDK 미설치.")
-        print("    환경 시크릿에 ANTHROPIC_API_KEY를 넣고 세션을 재시작하세요.")
+    print(f"provider = {provider.name} (router={provider.router_model}, generator={provider.generator_model})")
+    if provider.name == "stub":
+        print("⚠️  StubProvider로 동작 중 — GEMINI_API_KEY/ANTHROPIC_API_KEY 미설정.")
+        print("    환경 시크릿에 키를 넣고 세션을 재시작하세요.")
         return 1
 
     # 최소 비용 라우터 호출로 실연동 확인
     text, usage = provider.complete(
-        model=ROUTER_MODEL,
+        model=provider.router_model,
         system="너는 마케팅 의도 분류기다. acq/cvr/ret 중 관련된 것만 콤마로 답하라.",
         prompt="신규 손님을 더 끌고 싶어요",
         max_tokens=20,

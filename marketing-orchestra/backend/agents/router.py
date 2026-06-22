@@ -5,7 +5,6 @@
 항상 셋 다 호출하지 않는 것이 비용 통제의 1순위.
 선택적으로 고객 자유질의를 저가 라우터 모델로 의도분류(있을 때만).
 """
-from .llm import ROUTER_MODEL
 
 # 갭 판정 임계값(베이스라인 등급이 낮으면 추정이므로 보수적으로 깨움)
 THRESHOLDS = {
@@ -43,7 +42,7 @@ def decide(card: dict, question: str = "", provider=None, meter=None) -> dict:
     # 자유질의가 있으면 저가 라우터 모델로 의도 키워드 보강(선택)
     if question and provider is not None:
         text, usage = provider.complete(
-            model=ROUTER_MODEL,
+            model=provider.router_model,
             system="너는 마케팅 의도 분류기다. 질문을 acq(획득)/cvr(전환)/ret(유지) 중 관련된 것만 콤마로 답하라.",
             prompt=question,
             max_tokens=20,
@@ -62,5 +61,5 @@ def decide(card: dict, question: str = "", provider=None, meter=None) -> dict:
         "personas": list(woke.keys()),
         "reasons": woke,
         "woke_all": len(woke) == 3,
-        "router_model": ROUTER_MODEL if question else "rule-based(무료)",
+        "router_model": (provider.router_model if (question and provider) else "rule-based(무료)"),
     }
