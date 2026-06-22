@@ -31,6 +31,17 @@ python manage.py runserver
 | `POST /onboarding/merchants/` | 첫 만남 통합 등록(업체 + 3 베이스라인 중첩) |
 | `GET /onboarding/merchants/{id}/card/` | 베이스라인 카드(KPI 스냅샷 + 데이터등급) |
 | `POST /onboarding/transactions/` | 거래로그 적재(위탁처리 동의 전제, 미동의 403) |
+| `POST /agents/advise/` | **지오 에이전트**: `{merchant_id, question?}` → 라우팅+근거인용 액션+크레딧 청구 |
+
+## 에이전트 레이어 (agents/) — agentic-RAG PoC
+중앙집중 멀티에이전트(지오 매니저 + 획득/전환/유지). orchestrator §6·§7 구현:
+- **게이트 라우팅**(`router.py`): 베이스라인의 약한 KPI만 감지해 *필요한 페르소나만* 깨움
+- **모델 티어링**(`llm.py`): 라우터=Haiku 4.5 / 생성=Sonnet 4.6 (Opus 4.8 업그레이드 옵션). 환경변수 `GEO_ROUTER_MODEL`/`GEO_GENERATOR_MODEL`로 오버라이드
+- **인-코드 코퍼스**(`corpus.py`): [M1]~[M15] → 페르소나가 액션마다 **[M#] 인용**(`personas.py`)
+- **계측=과금**(`Meter`): 호출 토큰→원가 USD→크레딧 환산(원가≤청구, 마진 보호)
+- **무키/무네트워크 동작**: `ANTHROPIC_API_KEY` 없으면 결정적 `StubProvider`, 있으면 실제 Claude(`AnthropicProvider`). 응답 `billing.provider`로 투명 보고
+
+> 검증: makemigrations/migrate/check + 온보딩·에이전트 스모크테스트(스텁) 통과.
 
 ## 원칙
 - **측정 없이 성과 약속 금지** — 카드의 투영치는 항상 '추정'으로 명시(orchestrator §4.3).
