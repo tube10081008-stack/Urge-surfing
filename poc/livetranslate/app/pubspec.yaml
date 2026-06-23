@@ -12,9 +12,7 @@ dependencies:
     sdk: flutter
   # 릴레이와의 WebSocket(오디오 양방향).
   web_socket_channel: ^3.0.0
-  # 마이크 PCM16 스트림 캡처.
-  record: ^5.1.0
-  # 원시 PCM 재생(스트림 피드).
+  # 마이크 PCM16 스트림 캡처 + 원시 PCM 재생(녹음/재생 통합).
   flutter_sound: ^9.10.4
   # 마이크 권한.
   permission_handler: ^11.3.0

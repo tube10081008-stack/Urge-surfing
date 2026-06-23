@@ -40,7 +40,7 @@ fi
 echo "==> 생성된 기본 위젯 테스트 제거(존재하지 않는 MyApp 참조)"
 rm -f test/widget_test.dart
 
-echo "==> minSdk 24 보정 (record/flutter_sound 요구)"
+echo "==> minSdk 24 보정 (flutter_sound 요구)"
 for GRADLE in android/app/build.gradle android/app/build.gradle.kts; do
   [ -f "$GRADLE" ] || continue
   # Groovy/Kotlin DSL 및 flutter.minSdkVersion/숫자 형태 모두 대응.
@@ -78,5 +78,5 @@ cat <<'DONE'
     --dart-define=RELAY_TOKEN=설정한토큰
 
 빌드가 minSdk 관련으로 실패하면 android/app/build.gradle(.kts)의
-minSdkVersion 을 24 로 올린다(record/flutter_sound 요구사항).
+minSdkVersion 을 24 로 올린다(flutter_sound 요구사항).
 DONE

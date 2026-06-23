@@ -5,7 +5,6 @@ import 'dart:typed_data';
 
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:record/record.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// 통역 세션 상태.
@@ -16,6 +15,9 @@ enum TranslateState { idle, connecting, ready, reconnecting, error }
 /// 흐름:
 ///   마이크(PCM16/16kHz) → WebSocket → 릴레이 → Gemini Live Translate
 ///   → 릴레이 → WebSocket → 스피커(PCM16/24kHz)
+///
+/// 녹음·재생 모두 flutter_sound 하나로 처리한다(federated 플러그인 의존성
+/// 충돌 회피).
 ///
 /// 중국(GFW) 환경 대비 복원력:
 /// - **하트비트(ping/pong)**: GFW가 TCP는 살린 채 데이터만 끊는 경우를 감지.
@@ -44,16 +46,18 @@ class TranslateService {
   static const Duration _staleTimeout = Duration(seconds: 20);
   static const Duration _maxBackoff = Duration(seconds: 30);
 
-  final _recorder = AudioRecorder();
+  final _recorder = FlutterSoundRecorder();
   final _player = FlutterSoundPlayer();
 
   WebSocketChannel? _channel;
+  StreamController<Uint8List>? _recordController;
   StreamSubscription<Uint8List>? _micSub;
   StreamSubscription<dynamic>? _wsSub;
   Timer? _heartbeatTimer;
   Timer? _watchdogTimer;
   Timer? _reconnectTimer;
   bool _playerOpened = false;
+  bool _recorderOpened = false;
 
   // 세션 활성 여부(start~stop 사이). 재연결 루프의 가드.
   bool _active = false;
@@ -109,18 +113,22 @@ class TranslateService {
   }
 
   Future<void> _startMic() async {
-    final stream = await _recorder.startStream(
-      const RecordConfig(
-        encoder: AudioEncoder.pcm16bits,
-        sampleRate: _inputSampleRate,
-        numChannels: 1,
-      ),
-    );
-    _micSub = stream.listen((chunk) {
+    if (!_recorderOpened) {
+      await _recorder.openRecorder();
+      _recorderOpened = true;
+    }
+    _recordController = StreamController<Uint8List>();
+    _micSub = _recordController!.stream.listen((chunk) {
       // 연결돼 있을 때만 송신. 재연결 중 청크는 버린다(통역 공백 허용).
       final channel = _channel;
       if (channel != null) channel.sink.add(chunk);
     });
+    await _recorder.startRecorder(
+      codec: Codec.pcm16,
+      numChannels: 1,
+      sampleRate: _inputSampleRate,
+      toStream: _recordController!.sink,
+    );
   }
 
   void _connect() {
@@ -242,17 +250,19 @@ class TranslateService {
     });
   }
 
-  /// 통역 종료 및 연결/마이크 정리(플레이어는 유지).
+  /// 통역 종료 및 연결/마이크 정리(플레이어/레코더 핸들은 유지).
   Future<void> stop() async {
     _active = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _teardownConnection();
+    if (_recorderOpened && _recorder.isRecording) {
+      await _recorder.stopRecorder();
+    }
     await _micSub?.cancel();
     _micSub = null;
-    if (await _recorder.isRecording()) {
-      await _recorder.stop();
-    }
+    await _recordController?.close();
+    _recordController = null;
     _setState(TranslateState.idle);
   }
 
@@ -264,7 +274,10 @@ class TranslateService {
       await _player.closePlayer();
       _playerOpened = false;
     }
-    await _recorder.dispose();
+    if (_recorderOpened) {
+      await _recorder.closeRecorder();
+      _recorderOpened = false;
+    }
     await _stateController.close();
     await _transcriptController.close();
   }

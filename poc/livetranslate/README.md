@@ -113,7 +113,7 @@ flutter build apk --release \
 > `setup.sh` 가 주입하는 권한: Android `INTERNET`/`RECORD_AUDIO`,
 > iOS `NSMicrophoneUsageDescription`. 빌드가 minSdk 관련으로 실패하면
 > `android/app/build.gradle(.kts)` 의 `minSdkVersion` 을 24 로 올린다
-> (record/flutter_sound 요구사항).
+> (flutter_sound 요구사항).
 
 > ℹ️ 현재 Live Translate 설정(`responseModalities: AUDIO`)은 **번역 음성만**
 > 반환하고 텍스트 자막은 내려주지 않는다(실측). 따라서 화면의 자막 영역은
