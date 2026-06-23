@@ -43,6 +43,7 @@ poc/livetranslate/
 │   └── .env.example
 └── app/                    # Flutter 클라이언트 (폰)
     ├── pubspec.yaml
+    ├── setup.sh            # 플랫폼 폴더 생성 + 권한 주입 자동화
     └── lib/
         ├── main.dart
         ├── translate_screen.dart
@@ -84,31 +85,39 @@ pytest -q                   # 3 passed
 
 ### 2) Flutter 앱
 
-릴레이 주소/토큰을 `--dart-define` 으로 주입한다.
+이 PoC는 `lib/` 와 `pubspec.yaml` 만 포함한다. 빌드 전에 플랫폼 폴더
+(android/ios) 생성과 마이크/인터넷 권한 주입이 필요한데, **`setup.sh`** 가
+이를 자동화한다(여러 번 실행해도 안전).
 
 ```bash
 cd poc/livetranslate/app
-flutter pub get
+./setup.sh        # flutter create + 권한 주입 + pub get
+
+# 안드로이드 에뮬레이터 ↔ 같은 PC의 로컬 릴레이 (기본값 ws://10.0.2.2:8080)
+flutter run
+
+# 실기기(같은 와이파이) → PC LAN IP
+flutter run --dart-define=RELAY_BASE_URL=ws://192.168.0.x:8080
+
+# 해외 릴레이(운영)
 flutter run \
   --dart-define=RELAY_BASE_URL=wss://my-relay.example.com \
-  --dart-define=RELAY_TOKEN=change-me
+  --dart-define=RELAY_TOKEN=설정한토큰
+
+# APK 빌드
+flutter build apk --release \
+  --dart-define=RELAY_BASE_URL=wss://my-relay.example.com \
+  --dart-define=RELAY_TOKEN=설정한토큰
 ```
 
-로컬 테스트(안드로이드 에뮬레이터 ↔ 로컬 릴레이)는 기본값
-`ws://10.0.2.2:8080` 을 그대로 쓰면 된다.
+> `setup.sh` 가 주입하는 권한: Android `INTERNET`/`RECORD_AUDIO`,
+> iOS `NSMicrophoneUsageDescription`. 빌드가 minSdk 관련으로 실패하면
+> `android/app/build.gradle(.kts)` 의 `minSdkVersion` 을 24 로 올린다
+> (record/flutter_sound 요구사항).
 
-### 플랫폼 권한
-
-- **Android** `android/app/src/main/AndroidManifest.xml`
-  ```xml
-  <uses-permission android:name="android.permission.INTERNET"/>
-  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-  ```
-- **iOS** `ios/Runner/Info.plist`
-  ```xml
-  <key>NSMicrophoneUsageDescription</key>
-  <string>실시간 통역을 위해 마이크를 사용합니다.</string>
-  ```
+> ℹ️ 현재 Live Translate 설정(`responseModalities: AUDIO`)은 **번역 음성만**
+> 반환하고 텍스트 자막은 내려주지 않는다(실측). 따라서 화면의 자막 영역은
+> 보통 비어 있으며, 통역은 **음성으로 재생**된다.
 
 ## 네트워크 복원력 (중국 환경 대비)
 
