@@ -112,6 +112,14 @@ def test_relay_pumps_audio_both_ways(client):
     assert base64.b64decode(realtime["data"]) == b"\x10\x20\x30\x40"
 
 
+def test_ping_pong(client):
+    """클라이언트 하트비트(ping)에 릴레이가 즉시 pong으로 응답한다."""
+    with client.websocket_connect("/ws/translate?target=zh-CN") as ws:
+        assert json.loads(ws.receive_text())["value"] == "ready"
+        ws.send_text(json.dumps({"type": "ping"}))
+        assert json.loads(ws.receive_text()) == {"type": "pong"}
+
+
 def test_rejects_bad_token(monkeypatch):
     monkeypatch.setattr(main, "GEMINI_API_KEY", "test-key")
     monkeypatch.setattr(main, "RELAY_TOKEN", "secret")

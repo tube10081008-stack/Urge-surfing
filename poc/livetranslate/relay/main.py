@@ -110,10 +110,16 @@ async def _pump_client_to_google(client_ws: WebSocket, google_ws) -> None:
             await google_ws.send(json.dumps(payload))
             continue
 
-        # 텍스트(JSON) 제어 메시지: 현재는 무시하되 확장 지점.
+        # 텍스트(JSON) 제어 메시지.
         text = msg.get("text")
         if text:
-            log.debug("client control: %s", text)
+            try:
+                control = json.loads(text)
+            except json.JSONDecodeError:
+                continue
+            # 하트비트: GFW가 조용히 끊는 경우를 클라이언트가 감지하도록 즉시 응답.
+            if control.get("type") == "ping":
+                await client_ws.send_text(json.dumps({"type": "pong"}))
 
 
 async def _pump_google_to_client(client_ws: WebSocket, google_ws) -> None:
@@ -165,7 +171,14 @@ async def translate(
     log.info("client connected (target=%s source=%s)", target, source)
 
     try:
-        async with websockets.connect(url, max_size=None) as google_ws:
+        # 업스트림 keepalive: 죽은 연결을 빨리 감지해 끊는다(클라이언트가 재연결).
+        async with websockets.connect(
+            url,
+            max_size=None,
+            ping_interval=20,
+            ping_timeout=20,
+            close_timeout=5,
+        ) as google_ws:
             # 1) setup 전송 후 setupComplete 대기.
             await google_ws.send(json.dumps(_build_setup(target, source)))
 

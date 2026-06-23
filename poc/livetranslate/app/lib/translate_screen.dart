@@ -45,7 +45,9 @@ class _TranslateScreenState extends State<TranslateScreen> {
   }
 
   bool get _running =>
-      _state == TranslateState.connecting || _state == TranslateState.ready;
+      _state == TranslateState.connecting ||
+      _state == TranslateState.ready ||
+      _state == TranslateState.reconnecting;
 
   Future<void> _toggle() async {
     if (_running) {
@@ -66,6 +68,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
         TranslateState.idle => '대기 중',
         TranslateState.connecting => '연결 중…',
         TranslateState.ready => '통역 중 — 말씀하세요',
+        TranslateState.reconnecting => '재연결 중… (네트워크 복구 대기)',
         TranslateState.error => '오류 — 릴레이/네트워크 확인',
       };
 
