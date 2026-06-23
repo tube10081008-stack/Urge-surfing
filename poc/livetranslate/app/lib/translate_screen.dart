@@ -26,13 +26,16 @@ class _TranslateScreenState extends State<TranslateScreen> {
 
   String _target = 'zh-CN';
   TranslateState _state = TranslateState.idle;
-  String _lastTranscript = '';
+  final List<String> _transcripts = [];
 
   @override
   void initState() {
     super.initState();
     _service.state.listen((s) => setState(() => _state = s));
-    _service.transcript.listen((t) => setState(() => _lastTranscript = t));
+    _service.transcript.listen((t) {
+      if (t.trim().isEmpty) return;
+      setState(() => _transcripts.add(t));
+    });
   }
 
   @override
@@ -50,6 +53,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
       return;
     }
     try {
+      setState(() => _transcripts.clear());
       await _service.start(target: _target);
     } catch (e) {
       if (mounted) {
@@ -94,14 +98,30 @@ class _TranslateScreenState extends State<TranslateScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            if (_lastTranscript.isNotEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(_lastTranscript),
-                ),
-              ),
-            const Spacer(),
+            Expanded(
+              child: _transcripts.isEmpty
+                  ? const Center(
+                      child: Text(
+                        '자막이 여기에 표시됩니다',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      reverse: true,
+                      itemCount: _transcripts.length,
+                      itemBuilder: (_, i) {
+                        // 최신이 아래로 오도록 역순 표시.
+                        final text = _transcripts[_transcripts.length - 1 - i];
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(text),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 8),
             FilledButton.icon(
               onPressed: _toggle,
               icon: Icon(_running ? Icons.stop : Icons.mic),

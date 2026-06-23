@@ -62,6 +62,26 @@ python main.py              # 0.0.0.0:8080
 # 헬스체크: curl http://localhost:8080/health
 ```
 
+#### Docker로 배포 (해외 VPS 권장)
+
+```bash
+cd poc/livetranslate/relay
+cp .env.example .env        # 키/토큰 채우기
+docker compose up -d --build
+# 헬스체크: curl http://localhost:8080/health
+```
+
+#### 테스트
+
+실제 키 없이 구글 업스트림을 모킹해 중계 로직(setup 포맷·양방향 오디오·토큰
+검사)을 검증한다.
+
+```bash
+cd poc/livetranslate/relay
+pip install -r requirements.txt httpx pytest
+pytest -q                   # 3 passed
+```
+
 ### 2) Flutter 앱
 
 릴레이 주소/토큰을 `--dart-define` 으로 주입한다.
