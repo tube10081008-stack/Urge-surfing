@@ -207,9 +207,11 @@ async def _safe_close(ws: WebSocket, code: int, reason: str) -> None:
 if __name__ == "__main__":
     import uvicorn
 
+    # 클라우드 플랫폼(Render/Fly/Railway 등)은 PORT를 주입한다. 그걸 우선 사용.
+    port = int(os.environ.get("PORT") or os.environ.get("RELAY_PORT") or "8080")
     uvicorn.run(
         "main:app",
         host=os.environ.get("RELAY_HOST", "0.0.0.0"),
-        port=int(os.environ.get("RELAY_PORT", "8080")),
+        port=port,
         reload=bool(os.environ.get("RELAY_RELOAD")),
     )
