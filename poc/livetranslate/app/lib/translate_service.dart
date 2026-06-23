@@ -103,6 +103,7 @@ class TranslateService {
       numChannels: 1,
       sampleRate: _outputSampleRate,
       interleaved: true,
+      bufferSize: 8192,
     );
     _playerOpened = true;
   }
@@ -153,7 +154,7 @@ class TranslateService {
 
     // 바이너리 = 번역된 오디오(PCM16/24kHz) → 즉시 재생.
     if (message is List<int>) {
-      _player.foodSink?.add(FoodData(Uint8List.fromList(message)));
+      _player.uint8ListSink?.add(Uint8List.fromList(message));
       return;
     }
     // 텍스트(JSON) = 상태/자막/하트비트.

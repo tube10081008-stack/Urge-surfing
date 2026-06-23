@@ -37,6 +37,9 @@ else
   echo "   이미 존재하거나 파일 없음 — 건너뜀"
 fi
 
+echo "==> 생성된 기본 위젯 테스트 제거(존재하지 않는 MyApp 참조)"
+rm -f test/widget_test.dart
+
 echo "==> minSdk 24 보정 (record/flutter_sound 요구)"
 for GRADLE in android/app/build.gradle android/app/build.gradle.kts; do
   [ -f "$GRADLE" ] || continue
