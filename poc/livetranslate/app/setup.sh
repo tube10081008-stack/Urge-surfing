@@ -37,6 +37,19 @@ else
   echo "   이미 존재하거나 파일 없음 — 건너뜀"
 fi
 
+echo "==> minSdk 24 보정 (record/flutter_sound 요구)"
+for GRADLE in android/app/build.gradle android/app/build.gradle.kts; do
+  [ -f "$GRADLE" ] || continue
+  # Groovy/Kotlin DSL 및 flutter.minSdkVersion/숫자 형태 모두 대응.
+  perl -0pi -e '
+    s/minSdkVersion\s+flutter\.minSdkVersion/minSdkVersion 24/g;
+    s/minSdk\s*=\s*flutter\.minSdkVersion/minSdk = 24/g;
+    s/minSdkVersion\s+\d+/minSdkVersion 24/g;
+    s/minSdk\s*=\s*\d+/minSdk = 24/g;
+  ' "$GRADLE"
+  echo "   patched: $GRADLE"
+done
+
 echo "==> 의존성 설치"
 flutter pub get
 

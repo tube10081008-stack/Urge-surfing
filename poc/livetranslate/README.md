@@ -119,6 +119,20 @@ flutter build apk --release \
 > 반환하고 텍스트 자막은 내려주지 않는다(실측). 따라서 화면의 자막 영역은
 > 보통 비어 있으며, 통역은 **음성으로 재생**된다.
 
+#### 로컬 Flutter 없이 빌드 — GitHub Actions
+
+`.github/workflows/build-livetranslate-apk.yml` 가 클라우드에서 APK를 빌드한다.
+
+1. GitHub → **Actions → Build Live Translate APK → Run workflow**.
+2. `relay_base_url` 에 운영 릴레이 주소(`wss://...`) 입력.
+3. 릴레이 토큰은 저장소 **Settings → Secrets → Actions** 에 `RELAY_TOKEN`
+   으로 등록하면 빌드에 주입된다(없으면 빈 값).
+4. 완료 후 실행 페이지 하단 **Artifacts → `livetranslate-apk`** 다운로드.
+
+> release APK는 기본 debug 키로 서명되어 **테스트 설치용**이다. 스토어 배포용
+> 서명은 별도 keystore 설정이 필요하다. `poc/livetranslate/app/**` 푸시 시에도
+> 자동 빌드된다.
+
 ## 네트워크 복원력 (중국 환경 대비)
 
 GFW는 TCP 연결은 살려둔 채 데이터만 조용히 끊는(throttle/blackhole) 경우가
