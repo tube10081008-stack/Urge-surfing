@@ -27,14 +27,19 @@ enum TranslateState { idle, connecting, ready, reconnecting, error }
 /// 릴레이 주소는 [relayBaseUrl] 로 주입한다(빌드 시 --dart-define).
 /// 예: wss://my-relay.example.com  (중국 밖 VPS)
 class TranslateService {
-  /// 릴레이 WebSocket 기본 주소. 끝에 경로/쿼리는 붙이지 않는다.
-  static const String relayBaseUrl = String.fromEnvironment(
+  /// 릴레이 WebSocket 기본 주소(빌드 시 --dart-define로 주입 가능).
+  /// 런타임에 [start] 인자나 [relayUrl]로 덮어쓸 수 있다.
+  static const String defaultRelayBaseUrl = String.fromEnvironment(
     'RELAY_BASE_URL',
     defaultValue: 'ws://10.0.2.2:8080', // Android 에뮬레이터 → 로컬 릴레이
   );
 
-  /// 릴레이 접근 토큰(릴레이의 RELAY_TOKEN과 일치).
-  static const String relayToken = String.fromEnvironment('RELAY_TOKEN');
+  /// 릴레이 접근 토큰 기본값(릴레이의 RELAY_TOKEN과 일치).
+  static const String defaultRelayToken = String.fromEnvironment('RELAY_TOKEN');
+
+  /// 실제 사용 중인 릴레이 주소/토큰(런타임 변경 가능).
+  String relayUrl = defaultRelayBaseUrl;
+  String token = defaultRelayToken;
 
   // 입력: Gemini Live API가 요구하는 16kHz mono PCM16.
   static const int _inputSampleRate = 16000;
@@ -82,9 +87,18 @@ class TranslateService {
   /// 통역 시작.
   ///
   /// [target] 번역 대상 언어코드(예: "zh-CN"). 입력 언어는 자동 감지된다.
-  Future<void> start({required String target}) async {
+  /// [relayUrl]/[token]을 주면 기본값 대신 사용한다(앱 내 입력 지원).
+  Future<void> start({
+    required String target,
+    String? relayUrl,
+    String? token,
+  }) async {
     if (_active) return;
     _target = target;
+    if (relayUrl != null && relayUrl.trim().isNotEmpty) {
+      this.relayUrl = relayUrl.trim();
+    }
+    if (token != null) this.token = token.trim();
     _setState(TranslateState.connecting);
 
     if (!await Permission.microphone.request().isGranted) {
@@ -132,10 +146,10 @@ class TranslateService {
   }
 
   void _connect() {
-    final uri = Uri.parse('$relayBaseUrl/ws/translate').replace(
+    final uri = Uri.parse('$relayUrl/ws/translate').replace(
       queryParameters: {
         'target': _target,
-        if (relayToken.isNotEmpty) 'token': relayToken,
+        if (token.isNotEmpty) 'token': token,
       },
     );
 

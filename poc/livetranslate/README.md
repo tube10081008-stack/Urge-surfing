@@ -115,6 +115,12 @@ flutter build apk --release \
 > `android/app/build.gradle(.kts)` 의 `minSdkVersion` 을 24 로 올린다
 > (flutter_sound 요구사항).
 
+> ℹ️ 릴레이 주소/토큰은 **앱 화면에서 직접 입력**할 수 있다(맨 위 입력란).
+> `--dart-define` 값은 그 기본값일 뿐이며, cloudflared처럼 주소가 매번
+> 바뀌어도 APK를 다시 빌드할 필요 없이 붙여넣으면 된다. 연결 중에는 화면에
+> 대상 주소(`→ wss://...`)가 표시된다. **"재연결 중…"에서 멈춘다면 대상
+> 주소가 실제 동작하는 릴레이를 가리키는지** 먼저 확인할 것.
+
 > ℹ️ 현재 Live Translate 설정(`responseModalities: AUDIO`)은 **번역 음성만**
 > 반환하고 텍스트 자막은 내려주지 않는다(실측). 따라서 화면의 자막 영역은
 > 보통 비어 있으며, 통역은 **음성으로 재생**된다.

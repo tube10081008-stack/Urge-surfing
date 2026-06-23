@@ -28,6 +28,12 @@ class _TranslateScreenState extends State<TranslateScreen> {
   TranslateState _state = TranslateState.idle;
   final List<String> _transcripts = [];
 
+  // 릴레이 주소/토큰을 앱에서 직접 입력(매번 APK 재빌드 불필요).
+  final _urlController =
+      TextEditingController(text: TranslateService.defaultRelayBaseUrl);
+  final _tokenController =
+      TextEditingController(text: TranslateService.defaultRelayToken);
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +46,8 @@ class _TranslateScreenState extends State<TranslateScreen> {
 
   @override
   void dispose() {
+    _urlController.dispose();
+    _tokenController.dispose();
     _service.dispose();
     super.dispose();
   }
@@ -56,7 +64,11 @@ class _TranslateScreenState extends State<TranslateScreen> {
     }
     try {
       setState(() => _transcripts.clear());
-      await _service.start(target: _target);
+      await _service.start(
+        target: _target,
+        relayUrl: _urlController.text,
+        token: _tokenController.text,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
@@ -81,11 +93,38 @@ class _TranslateScreenState extends State<TranslateScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            TextField(
+              controller: _urlController,
+              enabled: !_running,
+              autocorrect: false,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: '릴레이 주소 (예: wss://xxxx.trycloudflare.com)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _tokenController,
+              enabled: !_running,
+              autocorrect: false,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: '릴레이 토큰 (선택)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 16),
             const Text('번역 대상 언어'),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: _target,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
               items: _languages.entries
                   .map((e) => DropdownMenuItem(value: e.value, child: Text(e.key)))
                   .toList(),
@@ -93,13 +132,23 @@ class _TranslateScreenState extends State<TranslateScreen> {
                   ? null
                   : (v) => setState(() => _target = v ?? _target),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             Center(
               child: Text(
                 _statusLabel,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
+            if (_running) ...[
+              const SizedBox(height: 4),
+              Center(
+                child: Text(
+                  '→ ${_urlController.text}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             Expanded(
               child: _transcripts.isEmpty
