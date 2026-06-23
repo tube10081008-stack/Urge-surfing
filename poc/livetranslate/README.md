@@ -142,16 +142,21 @@ GFW는 TCP 연결은 살려둔 채 데이터만 조용히 끊는(throttle/blackh
 - 백업으로 오프라인 번역(구글 번역 오프라인팩, 바이두 번역 등)을 깔아둔다.
 - ⚠️ 중국 내 무허가 VPN/프록시 사용은 **법적 회색지대**다. 리스크를 감안할 것.
 
-## 한계 / 미검증
+## 검증 상태
 
-- 본 PoC는 **코드 산출물** 위주다. 이 환경에는 Flutter SDK와 유효한 Gemini
-  API 키가 없어 **엔드투엔드 실행 검증은 하지 못했다.** 릴레이는 파이썬 문법
-  검증만 수행.
-- `gemini-3.5-live-translate-preview` 는 **미리보기** 모델이라 필드/모델명이
-  바뀔 수 있다. 동작이 이상하면 `relay/.env` 의 `GEMINI_LIVE_MODEL` 과
-  `main.py` 의 setup 메시지를 최신 공식 문서와 대조할 것.
-- `flutter_sound` 의 스트림 재생 API(`foodSink`/`startPlayerFromStream`)는
-  버전에 따라 시그니처가 달라질 수 있다.
+- ✅ **릴레이 ↔ Gemini 전 구간 실측 검증 완료.** 실제 API 키로 한국어 음성
+  4.5초를 릴레이에 흘려보내 영어/중국어 번역 음성을 수신했다. 수신 음성을
+  다시 전사한 결과:
+  - 한→영: `Hello, it's nice to meet you.`
+  - 한→중: `你好,很高興見到你。`
+- ✅ 유닛 테스트(setup 포맷·양방향 오디오·ping/pong·토큰·헬스체크) 4 passed.
+- ⚠️ **Flutter UI 계층은 미검증** — 이 개발 환경에 Flutter SDK가 없어 앱
+  컴파일/실행은 못 했다. `flutter_sound` 의 스트림 재생 API
+  (`foodSink`/`startPlayerFromStream`)는 버전에 따라 시그니처가 다를 수 있다.
+- ⚠️ `gemini-3.5-live-translate-preview` 는 **미리보기** 모델이다. 입력 언어는
+  자동 감지되며, `translationConfig` 는 `sourceLanguageCode` 를 받지 않는다
+  (실측 확인). 모델/필드가 바뀌면 `relay/.env` 의 `GEMINI_LIVE_MODEL` 과
+  `main.py` 의 setup 메시지를 최신 문서와 대조할 것.
 
 ## 참고
 

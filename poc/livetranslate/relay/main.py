@@ -62,20 +62,19 @@ async def health() -> dict:
     return {"status": "ok", "model": GEMINI_LIVE_MODEL, "key_configured": bool(GEMINI_API_KEY)}
 
 
-def _build_setup(target: str, source: str | None) -> dict:
+def _build_setup(target: str) -> dict:
     """Gemini Live API 초기 setup 메시지를 만든다.
 
     target: 번역 대상 언어코드 (예: "zh-CN", "ko", "en").
-    source: 입력 언어 힌트(선택). None이면 자동 감지.
+
+    입력 언어는 모델이 자동 감지한다. (API가 translationConfig에
+    sourceLanguageCode 필드를 받지 않음 — 실측 확인.)
     """
-    translation_config: dict = {
+    translation_config = {
         "targetLanguageCode": target,
         # 대상 언어를 음성으로 그대로 들려준다.
         "echoTargetLanguage": True,
     }
-    if source:
-        translation_config["sourceLanguageCode"] = source
-
     return {
         "setup": {
             "model": f"models/{GEMINI_LIVE_MODEL}",
@@ -152,7 +151,6 @@ async def _pump_google_to_client(client_ws: WebSocket, google_ws) -> None:
 async def translate(
     client_ws: WebSocket,
     target: str = Query("zh-CN", description="번역 대상 언어코드"),
-    source: str | None = Query(None, description="입력 언어 힌트(선택)"),
     token: str = Query("", description="릴레이 접근 토큰"),
 ) -> None:
     await client_ws.accept()
@@ -168,7 +166,7 @@ async def translate(
         return
 
     url = GOOGLE_WS_URL.format(key=GEMINI_API_KEY)
-    log.info("client connected (target=%s source=%s)", target, source)
+    log.info("client connected (target=%s)", target)
 
     try:
         # 업스트림 keepalive: 죽은 연결을 빨리 감지해 끊는다(클라이언트가 재연결).
@@ -180,7 +178,7 @@ async def translate(
             close_timeout=5,
         ) as google_ws:
             # 1) setup 전송 후 setupComplete 대기.
-            await google_ws.send(json.dumps(_build_setup(target, source)))
+            await google_ws.send(json.dumps(_build_setup(target)))
 
             # 2) 양방향 펌프 동시 실행. 한쪽이 끝나면 전체 종료.
             await asyncio.gather(

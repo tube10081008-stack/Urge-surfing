@@ -86,7 +86,7 @@ def client(monkeypatch):
 
 
 def test_relay_pumps_audio_both_ways(client):
-    with client.websocket_connect("/ws/translate?target=zh-CN&source=ko") as ws:
+    with client.websocket_connect("/ws/translate?target=zh-CN") as ws:
         # setupComplete → status:ready
         ready = json.loads(ws.receive_text())
         assert ready == {"type": "status", "value": "ready"}
@@ -105,7 +105,6 @@ def test_relay_pumps_audio_both_ways(client):
     cfg = setup["generationConfig"]
     assert cfg["responseModalities"] == ["AUDIO"]
     assert cfg["translationConfig"]["targetLanguageCode"] == "zh-CN"
-    assert cfg["translationConfig"]["sourceLanguageCode"] == "ko"
 
     realtime = sent[1]["realtimeInput"]["mediaChunks"][0]
     assert realtime["mimeType"] == "audio/pcm;rate=16000"

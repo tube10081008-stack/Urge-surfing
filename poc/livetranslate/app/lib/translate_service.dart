@@ -62,7 +62,6 @@ class TranslateService {
 
   // 재연결을 위해 시작 시 파라미터 보관.
   String _target = 'zh-CN';
-  String? _source;
 
   /// 상태 변화 알림.
   final _stateController = StreamController<TranslateState>.broadcast();
@@ -78,12 +77,10 @@ class TranslateService {
 
   /// 통역 시작.
   ///
-  /// [target] 번역 대상 언어코드(예: "zh-CN").
-  /// [source] 입력 언어 힌트(선택). null이면 자동 감지.
-  Future<void> start({required String target, String? source}) async {
+  /// [target] 번역 대상 언어코드(예: "zh-CN"). 입력 언어는 자동 감지된다.
+  Future<void> start({required String target}) async {
     if (_active) return;
     _target = target;
-    _source = source;
     _setState(TranslateState.connecting);
 
     if (!await Permission.microphone.request().isGranted) {
@@ -129,7 +126,6 @@ class TranslateService {
     final uri = Uri.parse('$relayBaseUrl/ws/translate').replace(
       queryParameters: {
         'target': _target,
-        if (_source != null) 'source': _source,
         if (relayToken.isNotEmpty) 'token': relayToken,
       },
     );
