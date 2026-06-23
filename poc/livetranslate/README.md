@@ -72,6 +72,34 @@ docker compose up -d --build
 # 헬스체크: curl http://localhost:8080/health
 ```
 
+#### Fly.io 배포 (도쿄 리전, 자동 wss — 여행용 권장)
+
+로컬 Docker 없이 원격 빌드로 배포된다. wss 주소와 TLS가 자동 제공된다.
+
+```bash
+# 1) flyctl 설치 후 로그인
+#    macOS:  brew install flyctl
+#    Win:    iwr https://fly.io/install.ps1 -useb | iex
+#    Linux:  curl -L https://fly.io/install.sh | sh
+fly auth login
+
+# 2) 릴레이 폴더에서 (fly.toml의 app 이름을 유일한 값으로 먼저 수정)
+cd poc/livetranslate/relay
+fly apps create <유일한-앱이름>     # fly.toml의 app 과 동일하게
+
+# 3) 비밀값 주입(코드/저장소에 키를 넣지 않음)
+fly secrets set GEMINI_API_KEY=새-Gemini-키 RELAY_TOKEN=원하는토큰 --app <앱이름>
+
+# 4) 원격 빌드·배포
+fly deploy --remote-only --app <앱이름>
+
+# 5) 확인
+curl https://<앱이름>.fly.dev/health
+```
+
+앱에는 **`wss://<앱이름>.fly.dev`** 를 릴레이 주소로 입력한다(토큰도 동일하게).
+여행 중 콜드스타트를 피하려면 `fly.toml` 의 `min_machines_running` 을 1로.
+
 #### 테스트
 
 실제 키 없이 구글 업스트림을 모킹해 중계 로직(setup 포맷·양방향 오디오·토큰
