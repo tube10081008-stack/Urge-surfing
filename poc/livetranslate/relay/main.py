@@ -72,8 +72,6 @@ def _build_setup(target: str) -> dict:
     """
     translation_config = {
         "targetLanguageCode": target,
-        # 대상 언어를 음성으로 그대로 들려준다.
-        "echoTargetLanguage": True,
     }
     return {
         "setup": {
