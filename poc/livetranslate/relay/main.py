@@ -27,6 +27,7 @@ import base64
 import json
 import logging
 import os
+import time
 import urllib.error
 import urllib.request
 
@@ -80,6 +81,12 @@ def _require_token(token: str) -> None:
         raise HTTPException(status_code=401, detail="unauthorized")
     if not GEMINI_API_KEY:
         raise HTTPException(status_code=503, detail="server_misconfigured")
+
+
+def _check_token_only(token: str) -> None:
+    """Gemini 키가 필요 없는 엔드포인트(환율 등)용 토큰 검사."""
+    if RELAY_TOKEN and token != RELAY_TOKEN:
+        raise HTTPException(status_code=401, detail="unauthorized")
 
 
 def _gemini_generate(model: str, body: dict) -> dict:
@@ -200,6 +207,68 @@ def ocr(payload: dict = Body(...), token: str = Query("")) -> dict:
         "original": parsed.get("original", ""),
         "translated": parsed.get("translated", ""),
     }
+
+
+# 환율 캐시(base 통화별 rates, 1시간 TTL).
+_rate_cache: dict[str, tuple[float, dict]] = {}
+
+
+@app.get("/rate")
+def rate(
+    base: str = Query("CNY"), quote: str = Query("KRW"), token: str = Query("")
+) -> dict:
+    """환율 조회(무료 공개 API). 릴레이가 해외에서 받아 폰에 전달."""
+    _check_token_only(token)
+    base = base.upper()
+    quote = quote.upper()
+    now = time.time()
+    cached = _rate_cache.get(base)
+    if not cached or now - cached[0] > 3600:
+        try:
+            url = f"https://open.er-api.com/v6/latest/{base}"
+            with urllib.request.urlopen(url, timeout=30) as r:
+                data = json.load(r)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"rate fetch failed: {exc}")
+        if data.get("result") != "success" or "rates" not in data:
+            raise HTTPException(status_code=502, detail="rate provider error")
+        _rate_cache[base] = (now, data["rates"])
+        cached = _rate_cache[base]
+    rates = cached[1]
+    if quote not in rates:
+        raise HTTPException(status_code=400, detail=f"unknown currency: {quote}")
+    return {"base": base, "quote": quote, "rate": rates[quote], "ts": int(cached[0])}
+
+
+@app.post("/bargain")
+def bargain(payload: dict = Body(...), token: str = Query("")) -> dict:
+    """흥정 도우미: 제안 가격 → 대상 언어로 자연스러운 흥정 문장 + 음성.
+
+    body: {"amount": 200, "currency": "CNY", "targetLang": "zh-CN"}
+    반환: {"text": "...", "audio": "<base64 PCM16 24kHz>"}
+    """
+    _require_token(token)
+    amount = payload.get("amount")
+    currency = payload.get("currency", "")
+    target = payload.get("targetLang", "zh-CN")
+    if amount is None or f"{amount}".strip() == "":
+        raise HTTPException(status_code=400, detail="no amount")
+    tname = LANG_NAMES.get(target, target)
+    prompt = (
+        "You are helping a tourist bargain politely at a market. Write ONE "
+        f"short, friendly and polite sentence in {tname} asking the seller to "
+        f"lower the price to {amount} {currency}. Natural, warm tone. Output "
+        "only the sentence, no quotes or notes."
+    )
+    try:
+        tr = _gemini_generate(
+            GEMINI_TEXT_MODEL, {"contents": [{"parts": [{"text": prompt}]}]}
+        )
+        text = _first_text(tr)
+        pcm = _tts_pcm(text)
+    except urllib.error.HTTPError as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=exc.read().decode()[:200])
+    return {"text": text, "audio": base64.b64encode(pcm).decode("ascii")}
 
 
 def _build_setup(target: str) -> dict:

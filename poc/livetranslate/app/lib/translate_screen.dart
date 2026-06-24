@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'phrase_cache.dart';
 import 'relay_api.dart';
@@ -326,6 +327,30 @@ class _ConversationScreenState extends State<ConversationScreen> {
     );
   }
 
+  // 💱 흥정·환율 도우미
+  void _onHelper() {
+    final s = _settings;
+    if (s == null || !s.isConfigured) {
+      _openSettings(force: true);
+      return;
+    }
+    final api = _api();
+    if (api == null) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: _HelperSheet(
+          api: api,
+          otherLang: s.otherLang,
+          onPlay: (pcm) => _service.playPcm(pcm),
+          onMessage: _snack,
+        ),
+      ),
+    );
+  }
+
   // 🔁 마지막 통역 다시듣기
   Future<void> _onReplay() async {
     if (!_service.hasLastAudio) {
@@ -470,7 +495,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _barButton(Icons.star, '문구', _busy ? null : _onPresets),
-          _barButton(Icons.photo_camera, '카메라 번역', _busy ? null : _onCamera),
+          _barButton(Icons.photo_camera, '카메라', _busy ? null : _onCamera),
+          _barButton(Icons.currency_exchange, '도우미', _busy ? null : _onHelper),
           _barButton(Icons.replay, '다시듣기', _busy ? null : _onReplay),
         ],
       ),
@@ -507,6 +533,217 @@ class _ConversationScreenState extends State<ConversationScreen> {
           await next.save();
           if (mounted) setState(() => _settings = next);
         },
+      ),
+    );
+  }
+}
+
+/// 여행 도우미 시트: 환율 환산 + 흥정 문장 생성.
+class _HelperSheet extends StatefulWidget {
+  final RelayApi api;
+  final String otherLang;
+  final Future<void> Function(List<int>) onPlay;
+  final void Function(String) onMessage;
+  const _HelperSheet({
+    required this.api,
+    required this.otherLang,
+    required this.onPlay,
+    required this.onMessage,
+  });
+
+  @override
+  State<_HelperSheet> createState() => _HelperSheetState();
+}
+
+class _HelperSheetState extends State<_HelperSheet> {
+  static const _currencies = ['CNY', 'KRW', 'USD', 'JPY', 'EUR', 'TWD', 'HKD'];
+
+  final _amount = TextEditingController(text: '100');
+  String _from = 'CNY';
+  String _to = 'KRW';
+  String _rateResult = '';
+  bool _rateBusy = false;
+
+  final _price = TextEditingController(text: '200');
+  String _curr = 'CNY';
+  String _bargainText = '';
+  bool _bargainBusy = false;
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _price.dispose();
+    super.dispose();
+  }
+
+  Future<void> _convert() async {
+    final amt = double.tryParse(_amount.text.trim()) ?? 0;
+    setState(() => _rateBusy = true);
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'rate_${_from}_$_to';
+    try {
+      final r = await widget.api.rate(_from, _to);
+      await prefs.setString(key, '${r.rate}|${r.ts}');
+      setState(() => _rateResult =
+          '$amt $_from ≈ ${(amt * r.rate).toStringAsFixed(2)} $_to');
+    } catch (_) {
+      final c = prefs.getString(key);
+      if (c != null) {
+        final rate = double.tryParse(c.split('|').first) ?? 0;
+        setState(() => _rateResult =
+            '$amt $_from ≈ ${(amt * rate).toStringAsFixed(2)} $_to  (저장된 환율)');
+      } else {
+        setState(() => _rateResult = '환율 조회 실패 (네트워크 확인)');
+      }
+    } finally {
+      if (mounted) setState(() => _rateBusy = false);
+    }
+  }
+
+  Future<void> _makeBargain() async {
+    final amt = num.tryParse(_price.text.trim());
+    if (amt == null) {
+      widget.onMessage('가격을 숫자로 입력하세요');
+      return;
+    }
+    setState(() => _bargainBusy = true);
+    try {
+      final b = await widget.api.bargain(amt, _curr, widget.otherLang);
+      await widget.onPlay(b.audio);
+      setState(() => _bargainText = b.text);
+    } catch (e) {
+      widget.onMessage('흥정 실패: $e');
+    } finally {
+      if (mounted) setState(() => _bargainBusy = false);
+    }
+  }
+
+  Widget _curDropdown(String v, ValueChanged<String> onCh) =>
+      DropdownButton<String>(
+        value: v,
+        items: [
+          for (final c in _currencies)
+            DropdownMenuItem(value: c, child: Text(c))
+        ],
+        onChanged: (x) => onCh(x ?? v),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final other = kAutonym[widget.otherLang] ?? widget.otherLang;
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('여행 도우미', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            // 환율
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('💱 환율 환산',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _amount,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                                labelText: '금액',
+                                isDense: true,
+                                border: OutlineInputBorder()),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _curDropdown(_from, (v) => setState(() => _from = v)),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 6),
+                          child: Icon(Icons.arrow_forward),
+                        ),
+                        _curDropdown(_to, (v) => setState(() => _to = v)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton(
+                        onPressed: _rateBusy ? null : _convert,
+                        child: _rateBusy
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2))
+                            : const Text('환산'),
+                      ),
+                    ),
+                    if (_rateResult.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(_rateResult,
+                            style: Theme.of(context).textTheme.titleMedium),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // 흥정
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('🤝 흥정 ($other(으)로 제안)',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _price,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                                labelText: '제안 가격',
+                                isDense: true,
+                                border: OutlineInputBorder()),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _curDropdown(_curr, (v) => setState(() => _curr = v)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.icon(
+                        onPressed: _bargainBusy ? null : _makeBargain,
+                        icon: const Icon(Icons.volume_up),
+                        label: Text(_bargainBusy ? '만드는 중…' : '흥정 문장 만들기'),
+                      ),
+                    ),
+                    if (_bargainText.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: SelectableText(_bargainText,
+                            style: Theme.of(context).textTheme.titleMedium),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

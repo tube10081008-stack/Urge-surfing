@@ -22,7 +22,40 @@ class RelayApi {
   Uri _uri(String path) => Uri.parse(
       '$_httpBase$path${token.isNotEmpty ? '?token=${Uri.encodeComponent(token)}' : ''}');
 
+  Uri _uriQ(String path, Map<String, String> params) =>
+      Uri.parse('$_httpBase$path').replace(queryParameters: {
+        ...params,
+        if (token.isNotEmpty) 'token': token,
+      });
+
   Map<String, String> get _json => {'Content-Type': 'application/json'};
+
+  /// 환율 조회: 1 [base] = rate [quote].
+  Future<({double rate, int ts})> rate(String base, String quote) async {
+    final r = await http.get(_uriQ('/rate', {'base': base, 'quote': quote}));
+    if (r.statusCode != 200) {
+      throw Exception('rate ${r.statusCode}: ${r.body}');
+    }
+    final d = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+    return (rate: (d['rate'] as num).toDouble(), ts: (d['ts'] as num).toInt());
+  }
+
+  /// 흥정 문장 생성(대상 언어) + 음성.
+  Future<({String text, Uint8List audio})> bargain(
+      num amount, String currency, String targetLang) async {
+    final r = await http.post(_uri('/bargain'),
+        headers: _json,
+        body: jsonEncode(
+            {'amount': amount, 'currency': currency, 'targetLang': targetLang}));
+    if (r.statusCode != 200) {
+      throw Exception('bargain ${r.statusCode}: ${r.body}');
+    }
+    final d = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+    return (
+      text: d['text'] as String? ?? '',
+      audio: base64Decode(d['audio'] as String),
+    );
+  }
 
   /// 문구 텍스트 → 대상 언어 번역 + 음성(PCM16/24kHz).
   Future<({String translated, Uint8List audio})> speak(

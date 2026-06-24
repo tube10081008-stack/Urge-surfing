@@ -146,6 +146,19 @@ def test_speak_bad_token(monkeypatch):
     assert r.status_code == 401
 
 
+def test_rate_bad_token(monkeypatch):
+    monkeypatch.setattr(main, "RELAY_TOKEN", "secret")
+    c = TestClient(main.app)
+    assert c.get("/rate?base=CNY&quote=KRW&token=wrong").status_code == 401
+
+
+def test_bargain_bad_token(monkeypatch):
+    monkeypatch.setattr(main, "GEMINI_API_KEY", "k")
+    monkeypatch.setattr(main, "RELAY_TOKEN", "secret")
+    c = TestClient(main.app)
+    assert c.post("/bargain?token=wrong", json={"amount": 200}).status_code == 401
+
+
 def test_health(monkeypatch):
     monkeypatch.setattr(main, "GEMINI_API_KEY", "")
     c = TestClient(main.app)
