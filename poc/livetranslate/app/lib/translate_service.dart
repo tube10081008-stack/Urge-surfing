@@ -66,6 +66,9 @@ class TranslateService {
 
   // 세션 활성 여부(start~stop 사이). 재연결 루프의 가드.
   bool _active = false;
+  // 푸시투토크: true일 때만 마이크 청크를 릴레이로 보낸다(손 뗐을 땐 차단 →
+  // 스피커로 나온 번역 음성이 마이크로 되돌아가는 피드백/반복 방지).
+  bool _capturing = false;
   int _reconnectAttempt = 0;
   DateTime _lastInbound = DateTime.now();
 
@@ -133,9 +136,10 @@ class TranslateService {
     }
     _recordController = StreamController<Uint8List>();
     _micSub = _recordController!.stream.listen((chunk) {
-      // 연결돼 있을 때만 송신. 재연결 중 청크는 버린다(통역 공백 허용).
+      // 연결됐고 '말하는 중(_capturing)'일 때만 송신.
+      // 손을 뗀 동안(재생 중)은 차단해 피드백/반복을 막는다.
       final channel = _channel;
-      if (channel != null) channel.sink.add(chunk);
+      if (channel != null && _capturing) channel.sink.add(chunk);
     });
     await _recorder.startRecorder(
       codec: Codec.pcm16,
@@ -264,6 +268,9 @@ class TranslateService {
     });
   }
 
+  /// 푸시투토크 캡처 on/off. true일 때만 마이크 입력이 릴레이로 전송된다.
+  void setCapturing(bool value) => _capturing = value;
+
   /// 통역 방향(대상 언어) 전환. 마이크/플레이어는 유지하고 WS만 재연결한다.
   /// 세션이 비활성이면 무시(먼저 start 필요).
   Future<void> switchTarget(String target) async {
@@ -279,6 +286,7 @@ class TranslateService {
   /// 통역 종료 및 연결/마이크 정리(플레이어/레코더 핸들은 유지).
   Future<void> stop() async {
     _active = false;
+    _capturing = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _teardownConnection();

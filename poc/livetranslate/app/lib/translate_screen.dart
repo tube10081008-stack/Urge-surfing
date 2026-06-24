@@ -21,7 +21,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   AppSettings? _settings;
   TranslateState _state = TranslateState.idle;
-  String? _activeDir; // 'me' | 'other' | null
+  String? _dir; // 현재 세션 방향 'me' | 'other'
+  bool _holding = false; // 버튼을 누르고 있는 중인가(푸시투토크)
 
   @override
   void initState() {
@@ -48,52 +49,55 @@ class _ConversationScreenState extends State<ConversationScreen> {
       _state == TranslateState.ready ||
       _state == TranslateState.reconnecting;
 
-  Future<void> _tapDirection(String dir) async {
+  // 누르는 순간: 세션 시작/방향 전환 + 캡처 on(푸시투토크).
+  Future<void> _pressDown(String dir) async {
     final s = _settings;
     if (s == null) return;
     if (!s.isConfigured) {
       _openSettings(force: true);
       return;
     }
+    setState(() => _holding = true);
 
     // 내 칸: 내 언어로 말함 → 상대 언어로 출력(target=상대언어).
     // 상대 칸: 상대 언어로 말함 → 내 언어로 출력(target=내언어).
     final target = dir == 'me' ? s.otherLang : s.myLang;
 
-    // 같은 칸 다시 탭 → 정지.
-    if (_activeDir == dir && _running) {
-      await _service.stop();
-      if (mounted) setState(() => _activeDir = null);
-      return;
-    }
-
     try {
       if (!_running) {
         await _service.start(
-          target: target,
-          relayUrl: s.relayUrl,
-          token: s.token,
-        );
-      } else {
+            target: target, relayUrl: s.relayUrl, token: s.token);
+      } else if (_dir != dir) {
         await _service.switchTarget(target); // 방향만 전환(마이크 유지).
       }
-      if (mounted) setState(() => _activeDir = dir);
+      if (mounted) setState(() => _dir = dir);
+      // 연결 대기 중 손을 뗐을 수 있으니, 여전히 누르고 있을 때만 캡처 on.
+      _service.setCapturing(_holding);
     } catch (e) {
+      _service.setCapturing(false);
       if (mounted) {
+        setState(() => _holding = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
 
-  String _hintFor(bool active) {
-    if (!active) return '탭하여 말하기';
+  // 손을 떼는 순간: 캡처 off → 번역 음성 재생(마이크 차단으로 피드백 방지).
+  void _release() {
+    _service.setCapturing(false);
+    if (mounted) setState(() => _holding = false);
+  }
+
+  // active 칸의 상태 문구를 그 화자 언어(uiLang)로.
+  String _hintFor(bool active, String uiLang) {
+    if (!active) return paneText(uiLang, 'hold');
     return switch (_state) {
-      TranslateState.connecting => '연결 중…',
-      TranslateState.ready => '듣는 중 — 말하세요',
-      TranslateState.reconnecting => '재연결 중…',
-      TranslateState.error => '오류 — 설정/네트워크 확인',
-      TranslateState.idle => '준비',
+      TranslateState.connecting => paneText(uiLang, 'connecting'),
+      TranslateState.ready => paneText(uiLang, 'speaking'),
+      TranslateState.reconnecting => paneText(uiLang, 'reconnecting'),
+      TranslateState.error => paneText(uiLang, 'error'),
+      TranslateState.idle => paneText(uiLang, 'hold'),
     };
   }
 
@@ -102,22 +106,27 @@ class _ConversationScreenState extends State<ConversationScreen> {
     required String spokenLang,
     required String outLang,
   }) {
-    final active = _activeDir == dir;
+    // 이 칸을 쓰는 사람의 언어 = spokenLang. UI 문구를 그 언어로 보여준다.
+    final uiLang = spokenLang;
+    final active = _holding && _dir == dir;
     final scheme = Theme.of(context).colorScheme;
     final bg = active ? scheme.primary : scheme.surfaceContainerHighest;
     final fg = active ? scheme.onPrimary : scheme.onSurfaceVariant;
-    final spoken = kLanguages[spokenLang] ?? spokenLang;
-    final out = kLanguages[outLang] ?? outLang;
+    final spoken = kAutonym[spokenLang] ?? spokenLang;
+    final out = kAutonym[outLang] ?? outLang;
 
     // 부모(Expanded)가 높이를 주므로 여기선 Expanded를 쓰지 않는다.
+    // Listener로 '누르고 있는 동안만' 캡처(푸시투토크).
     return Padding(
       padding: const EdgeInsets.all(8),
-      child: Material(
-        color: bg,
-        borderRadius: BorderRadius.circular(24),
-        child: InkWell(
+      child: Listener(
+        onPointerDown:
+            _settings == null ? null : (_) => _pressDown(dir),
+        onPointerUp: (_) => _release(),
+        onPointerCancel: (_) => _release(),
+        child: Material(
+          color: bg,
           borderRadius: BorderRadius.circular(24),
-          onTap: _settings == null ? null : () => _tapDirection(dir),
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -140,7 +149,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           CircularProgressIndicator(strokeWidth: 2, color: fg),
                     ),
                   ),
-                Text(_hintFor(active),
+                Text(_hintFor(active, uiLang),
                     style: TextStyle(color: fg, fontSize: 15)),
               ],
             ),
