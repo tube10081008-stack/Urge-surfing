@@ -22,6 +22,8 @@ dependencies:
   http: ^1.2.1
   # 카메라 OCR용 이미지 촬영/선택.
   image_picker: ^1.1.0
+  # 오프라인 문구 음성 캐시 저장 위치.
+  path_provider: ^2.1.0
 
 dev_dependencies:
   flutter_test:

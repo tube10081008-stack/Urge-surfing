@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'phrase_cache.dart';
 import 'relay_api.dart';
 import 'settings.dart';
 import 'translate_service.dart';
@@ -20,6 +21,7 @@ class ConversationScreen extends StatefulWidget {
 
 class _ConversationScreenState extends State<ConversationScreen> {
   final _service = TranslateService();
+  final _cache = PhraseCache();
 
   AppSettings? _settings;
   TranslateState _state = TranslateState.idle;
@@ -124,37 +126,141 @@ class _ConversationScreenState extends State<ConversationScreen> {
     }
   }
 
-  // ⭐ 자주 쓰는 문구
+  // ⭐ 자주 쓰는 문구 (카테고리 + 오프라인 캐시)
   void _onPresets() {
     final s = _settings;
     if (s == null || !s.isConfigured) {
       _openSettings(force: true);
       return;
     }
+    final book = phrasebookFor(s.myLang);
     showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        maxChildSize: 0.95,
+        builder: (c, scroll) => Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('자주 쓰는 문구 (상대 언어로 들려줍니다)',
-                  style: Theme.of(ctx).textTheme.titleMedium),
-            ),
-            for (final p in presetsFor(s.myLang))
-              ListTile(
-                title: Text(p),
-                trailing: const Icon(Icons.volume_up),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _speakText(p, s.otherLang);
-                },
+            ListTile(
+              title: const Text('자주 쓰는 문구',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('탭하면 ${kAutonym[s.otherLang] ?? s.otherLang} 음성으로'),
+              trailing: TextButton.icon(
+                icon: const Icon(Icons.download_for_offline),
+                label: const Text('오프라인 받기'),
+                onPressed: () => _prefetchPresets(s.otherLang, book),
               ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView(
+                controller: scroll,
+                children: [
+                  for (final entry in book.entries) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                      child: Text(entry.key,
+                          style: Theme.of(c).textTheme.labelLarge?.copyWith(
+                              color: Theme.of(c).colorScheme.primary)),
+                    ),
+                    for (final p in entry.value)
+                      ListTile(
+                        dense: true,
+                        title: Text(p),
+                        trailing: const Icon(Icons.volume_up, size: 20),
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          _playPreset(p, s.otherLang);
+                        },
+                      ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  /// 문구 재생: 캐시 우선(오프라인). 없으면 온라인 /speak 후 캐시에 저장.
+  Future<void> _playPreset(String text, String targetLang) async {
+    final cached = await _cache.get(targetLang, text);
+    if (cached != null) {
+      await _service.playPcm(cached); // 네트워크 불필요
+      _snack('🔊 (오프라인) $text');
+      return;
+    }
+    final api = _api();
+    if (api == null) {
+      _openSettings(force: true);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final res = await api.speak(text, targetLang);
+      await _service.playPcm(res.audio);
+      await _cache.put(targetLang, text, res.audio); // 다음엔 오프라인
+      _snack('🔊 ${res.translated}');
+    } catch (e) {
+      _snack('문구 음성 실패: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// 현재 문구집 전체를 대상 언어로 미리 받아 캐시(오프라인 대비).
+  Future<void> _prefetchPresets(
+      String targetLang, Map<String, List<String>> book) async {
+    final api = _api();
+    if (api == null) return;
+    final all = [for (final e in book.entries) ...e.value];
+    final progress = ValueNotifier<int>(0);
+    var cancelled = false;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text('오프라인 음성 받기 (${kAutonym[targetLang] ?? targetLang})'),
+        content: ValueListenableBuilder<int>(
+          valueListenable: progress,
+          builder: (_, v, __) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(width: 16),
+              Text('$v / ${all.length}'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => cancelled = true,
+            child: const Text('중지'),
+          ),
+        ],
+      ),
+    );
+
+    var done = 0;
+    for (final p in all) {
+      if (cancelled) break;
+      try {
+        if (!await _cache.has(targetLang, p)) {
+          final res = await api.speak(p, targetLang);
+          await _cache.put(targetLang, p, res.audio);
+        }
+      } catch (_) {
+        // 개별 실패는 건너뛴다.
+      }
+      progress.value = ++done;
+    }
+    if (mounted) Navigator.of(context).pop(); // 진행 다이얼로그 닫기
+    progress.dispose();
+    _snack('오프라인 음성 $done개 준비 완료');
   }
 
   // 📷 카메라 OCR 번역

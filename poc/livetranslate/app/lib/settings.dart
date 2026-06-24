@@ -64,61 +64,122 @@ String paneText(String lang, String key) =>
     (kPaneStrings[lang] ?? kPaneStrings['en']!)[key] ??
     kPaneStrings['en']![key]!;
 
-/// 자주 쓰는 여행 문구(내 언어 기준). 탭하면 상대 언어로 번역·음성 출력.
-const Map<String, List<String>> kPresets = {
-  'ko': [
-    '안녕하세요',
-    '감사합니다',
-    '화장실이 어디예요?',
-    '이거 얼마예요?',
-    '너무 비싸요, 깎아주세요',
-    '맵지 않게 해주세요',
-    '계산해 주세요',
-    '도와주세요',
-  ],
-  'en': [
-    'Hello',
-    'Thank you',
-    'Where is the restroom?',
-    'How much is this?',
-    'Too expensive, can you lower the price?',
-    'Not spicy, please',
-    'Check, please',
-    'Please help me',
-  ],
-  'zh-CN': [
-    '你好',
-    '谢谢',
-    '洗手间在哪里?',
-    '这个多少钱?',
-    '太贵了，能便宜点吗?',
-    '请不要辣',
-    '请结账',
-    '请帮帮我',
-  ],
-  'zh-TW': [
-    '你好',
-    '謝謝',
-    '洗手間在哪裡?',
-    '這個多少錢?',
-    '太貴了，能便宜點嗎?',
-    '請不要辣',
-    '請結帳',
-    '請幫幫我',
-  ],
-  'ja': [
-    'こんにちは',
-    'ありがとうございます',
-    'トイレはどこですか?',
-    'これはいくらですか?',
-    '高すぎます、安くしてください',
-    '辛くしないでください',
-    'お会計お願いします',
-    '助けてください',
-  ],
+/// 카테고리별 여행 문구(화자 언어 기준). 탭하면 상대 언어로 번역·음성 출력.
+/// 카테고리당 6~8개, 합계 100개 미만. 한국어가 주 언어, 그 외는 영어로 폴백.
+const Map<String, Map<String, List<String>>> kPhrasebook = {
+  'ko': {
+    '인사·기본': [
+      '안녕하세요',
+      '감사합니다',
+      '죄송합니다',
+      '네, 좋아요',
+      '아니요, 괜찮아요',
+      '잠시만요',
+      '천천히 말해 주세요',
+    ],
+    '식당': [
+      '메뉴 주세요',
+      '이거 주세요',
+      '맵지 않게 해주세요',
+      '물 좀 주세요',
+      '계산해 주세요',
+      '포장해 주세요',
+      '정말 맛있어요',
+    ],
+    '쇼핑·흥정': [
+      '이거 얼마예요?',
+      '너무 비싸요',
+      '좀 깎아주세요',
+      '카드 되나요?',
+      '영수증 주세요',
+      '다른 색 있어요?',
+      '한 번 입어봐도 돼요?',
+    ],
+    '길찾기·교통': [
+      '화장실이 어디예요?',
+      '여기가 어디예요?',
+      '지하철역이 어디예요?',
+      '택시를 불러 주세요',
+      '공항으로 가 주세요',
+      '얼마나 걸려요?',
+      '여기서 세워 주세요',
+    ],
+    '숙소': [
+      '체크인하고 싶어요',
+      '예약했어요',
+      '와이파이 비밀번호가 뭐예요?',
+      '방을 바꿔 주세요',
+      '짐을 맡길 수 있어요?',
+      '몇 시에 체크아웃이에요?',
+    ],
+    '응급·도움': [
+      '도와주세요',
+      '경찰을 불러 주세요',
+      '병원이 어디예요?',
+      '몸이 아파요',
+      '길을 잃었어요',
+      '한국어 할 줄 아는 사람 있어요?',
+    ],
+  },
+  'en': {
+    'Basics': [
+      'Hello',
+      'Thank you',
+      'Sorry',
+      'Yes, please',
+      'No, thank you',
+      'One moment',
+      'Please speak slowly',
+    ],
+    'Restaurant': [
+      'Menu, please',
+      'I will have this',
+      'Not spicy, please',
+      'Water, please',
+      'Check, please',
+      'To go, please',
+      'It is delicious',
+    ],
+    'Shopping': [
+      'How much is this?',
+      'Too expensive',
+      'Can you lower the price?',
+      'Do you take cards?',
+      'Receipt, please',
+      'Any other color?',
+      'Can I try it on?',
+    ],
+    'Directions': [
+      'Where is the restroom?',
+      'Where am I?',
+      'Where is the subway station?',
+      'Please call a taxi',
+      'To the airport, please',
+      'How long does it take?',
+      'Stop here, please',
+    ],
+    'Hotel': [
+      'I want to check in',
+      'I have a reservation',
+      'What is the Wi-Fi password?',
+      'Please change my room',
+      'Can I leave my luggage?',
+      'What time is checkout?',
+    ],
+    'Emergency': [
+      'Help me',
+      'Call the police',
+      'Where is the hospital?',
+      'I feel sick',
+      'I am lost',
+      'Does anyone speak English?',
+    ],
+  },
 };
 
-List<String> presetsFor(String lang) => kPresets[lang] ?? kPresets['en']!;
+/// 화자 언어의 문구집. 없으면 영어로 폴백.
+Map<String, List<String>> phrasebookFor(String lang) =>
+    kPhrasebook[lang] ?? kPhrasebook['en']!;
 
 /// 앱 설정(릴레이 주소/토큰 + 대화 언어쌍). SharedPreferences에 저장.
 class AppSettings {
