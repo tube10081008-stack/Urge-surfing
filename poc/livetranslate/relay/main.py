@@ -339,6 +339,11 @@ def _build_setup(target: str) -> dict:
                 "responseModalities": ["AUDIO"],
                 "translationConfig": translation_config,
             },
+            # 자동 VAD를 끄고 클라이언트가 발화 시작/끝을 명시(푸시투토크).
+            # 손 떼는 즉시 activityEnd로 확정 → 지연 최소화.
+            "realtimeInputConfig": {
+                "automaticActivityDetection": {"disabled": True}
+            },
         }
     }
 
@@ -376,11 +381,15 @@ async def _pump_client_to_google(client_ws: WebSocket, google_ws) -> None:
             # 하트비트: GFW가 조용히 끊는 경우를 클라이언트가 감지하도록 즉시 응답.
             if control.get("type") == "ping":
                 await client_ws.send_text(json.dumps({"type": "pong"}))
-            elif control.get("type") == "end":
-                # 사용자가 말을 멈춤(푸시투토크 손 뗌) → 캐시 오디오를 즉시
-                # 처리하도록 신호 → 번역 지연 감소.
+            elif control.get("type") == "start":
+                # 푸시투토크 누름 → 발화 시작(수동 VAD).
                 await google_ws.send(
-                    json.dumps({"realtimeInput": {"audioStreamEnd": True}})
+                    json.dumps({"realtimeInput": {"activityStart": {}}})
+                )
+            elif control.get("type") == "end":
+                # 푸시투토크 손 뗌 → 발화 끝 → 즉시 번역 확정.
+                await google_ws.send(
+                    json.dumps({"realtimeInput": {"activityEnd": {}}})
                 )
 
 

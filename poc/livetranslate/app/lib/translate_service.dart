@@ -270,11 +270,14 @@ class TranslateService {
   }
 
   /// 푸시투토크 캡처 on/off. true일 때만 마이크 입력이 릴레이로 전송된다.
-  /// off로 바뀌는 순간(손 뗌) end 신호를 보내 모델이 즉시 번역하게 한다(지연↓).
+  /// 수동 활동감지(VAD off): 누름→start, 뗌→end 신호로 발화 경계를 명시해
+  /// 손 떼는 즉시 번역이 확정되도록 한다(지연 최소).
   void setCapturing(bool value) {
     final was = _capturing;
     _capturing = value;
-    if (was && !value) {
+    if (!was && value) {
+      _channel?.sink.add(jsonEncode({'type': 'start'}));
+    } else if (was && !value) {
       _channel?.sink.add(jsonEncode({'type': 'end'}));
     }
   }
