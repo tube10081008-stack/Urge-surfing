@@ -13,9 +13,9 @@ primary_region = "nrt"   # 도쿄. 싱가포르는 sin, 서울은 없음(가까�
 [http_service]
   internal_port = 8080
   force_https = true          # http → https 강제(앱은 wss 사용)
-  auto_stop_machines = "stop"  # 유휴 시 정지(비용 절약). 사용 중 WS 동안은 유지.
-  auto_start_machines = true   # 접속 들어오면 자동 기동
-  min_machines_running = 0     # 항상 켜두려면 1로(여행 중 콜드스타트 회피)
+  auto_stop_machines = false   # 정지 안 함(콜드스타트로 인한 레이턴시 제거)
+  auto_start_machines = true
+  min_machines_running = 1     # 항상 1대 가동(비용 소폭↑, 응답 즉시)
 
 [env]
   PORT = "8080"

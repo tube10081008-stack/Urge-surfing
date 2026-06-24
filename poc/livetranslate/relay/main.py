@@ -376,6 +376,12 @@ async def _pump_client_to_google(client_ws: WebSocket, google_ws) -> None:
             # 하트비트: GFW가 조용히 끊는 경우를 클라이언트가 감지하도록 즉시 응답.
             if control.get("type") == "ping":
                 await client_ws.send_text(json.dumps({"type": "pong"}))
+            elif control.get("type") == "end":
+                # 사용자가 말을 멈춤(푸시투토크 손 뗌) → 캐시 오디오를 즉시
+                # 처리하도록 신호 → 번역 지연 감소.
+                await google_ws.send(
+                    json.dumps({"realtimeInput": {"audioStreamEnd": True}})
+                )
 
 
 async def _pump_google_to_client(client_ws: WebSocket, google_ws) -> None:

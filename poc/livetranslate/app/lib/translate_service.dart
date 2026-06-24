@@ -124,7 +124,7 @@ class TranslateService {
       numChannels: 1,
       sampleRate: _outputSampleRate,
       interleaved: true,
-      bufferSize: 8192,
+      bufferSize: 4096, // 작게 → 첫 음성까지 지연↓
     );
     _playerOpened = true;
   }
@@ -270,7 +270,14 @@ class TranslateService {
   }
 
   /// 푸시투토크 캡처 on/off. true일 때만 마이크 입력이 릴레이로 전송된다.
-  void setCapturing(bool value) => _capturing = value;
+  /// off로 바뀌는 순간(손 뗌) end 신호를 보내 모델이 즉시 번역하게 한다(지연↓).
+  void setCapturing(bool value) {
+    final was = _capturing;
+    _capturing = value;
+    if (was && !value) {
+      _channel?.sink.add(jsonEncode({'type': 'end'}));
+    }
+  }
 
   /// 직전 통역 음성(다시듣기용) 버퍼. 새 발화 시작 시 비운다.
   final List<int> _lastAudio = [];
