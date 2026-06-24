@@ -109,11 +109,17 @@ def _first_audio(resp: dict) -> bytes:
 
 
 def _tts_pcm(text: str) -> bytes:
-    """텍스트 → 24kHz PCM16 음성(Gemini TTS)."""
+    """텍스트 → 24kHz PCM16 음성(Gemini TTS).
+
+    TTS 모델이 입력을 '질문'으로 보고 답하려 하지 않도록, 그대로 읽으라는
+    스타일 지시를 앞에 붙인다(지시 부분은 음성으로 읽히지 않음).
+    """
     resp = _gemini_generate(
         GEMINI_TTS_MODEL,
         {
-            "contents": [{"parts": [{"text": text}]}],
+            "contents": [
+                {"parts": [{"text": f"Say in a natural, friendly voice: {text}"}]}
+            ],
             "generationConfig": {
                 "responseModalities": ["AUDIO"],
                 "speechConfig": {
@@ -217,27 +223,45 @@ _rate_cache: dict[str, tuple[float, dict]] = {}
 def rate(
     base: str = Query("CNY"), quote: str = Query("KRW"), token: str = Query("")
 ) -> dict:
-    """환율 조회(무료 공개 API). 릴레이가 해외에서 받아 폰에 전달."""
+    """환율 조회. 1차: open.er-api.com(전체표·1h캐시), 2차: frankfurter(쌍)."""
     _check_token_only(token)
     base = base.upper()
     quote = quote.upper()
     now = time.time()
-    cached = _rate_cache.get(base)
-    if not cached or now - cached[0] > 3600:
-        try:
-            url = f"https://open.er-api.com/v6/latest/{base}"
-            with urllib.request.urlopen(url, timeout=30) as r:
+
+    # 1차: open.er-api.com (base별 전체 환율표 캐시)
+    try:
+        cached = _rate_cache.get(base)
+        if not cached or now - cached[0] > 3600:
+            with urllib.request.urlopen(
+                f"https://open.er-api.com/v6/latest/{base}", timeout=30
+            ) as r:
                 data = json.load(r)
-        except Exception as exc:  # noqa: BLE001
-            raise HTTPException(status_code=502, detail=f"rate fetch failed: {exc}")
-        if data.get("result") != "success" or "rates" not in data:
-            raise HTTPException(status_code=502, detail="rate provider error")
-        _rate_cache[base] = (now, data["rates"])
-        cached = _rate_cache[base]
-    rates = cached[1]
-    if quote not in rates:
-        raise HTTPException(status_code=400, detail=f"unknown currency: {quote}")
-    return {"base": base, "quote": quote, "rate": rates[quote], "ts": int(cached[0])}
+            if data.get("result") == "success" and "rates" in data:
+                _rate_cache[base] = (now, data["rates"])
+                cached = _rate_cache[base]
+            else:
+                cached = None
+        if cached and quote in cached[1]:
+            return {
+                "base": base,
+                "quote": quote,
+                "rate": cached[1][quote],
+                "ts": int(cached[0]),
+            }
+    except Exception:  # noqa: BLE001 - 폴백으로 넘어간다.
+        pass
+
+    # 2차: frankfurter.app (단일 쌍)
+    try:
+        with urllib.request.urlopen(
+            f"https://api.frankfurter.app/latest?from={base}&to={quote}", timeout=30
+        ) as r:
+            data = json.load(r)
+        value = data["rates"][quote]
+        return {"base": base, "quote": quote, "rate": value, "ts": int(now)}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"rate fetch failed: {exc}")
 
 
 @app.post("/bargain")
