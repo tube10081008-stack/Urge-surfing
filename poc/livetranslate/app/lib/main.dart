@@ -15,7 +15,7 @@ class LiveTranslateApp extends StatelessWidget {
         colorSchemeSeed: Colors.teal,
         useMaterial3: true,
       ),
-      home: const TranslateScreen(),
+      home: const ConversationScreen(),
     );
   }
 }

@@ -264,6 +264,18 @@ class TranslateService {
     });
   }
 
+  /// 통역 방향(대상 언어) 전환. 마이크/플레이어는 유지하고 WS만 재연결한다.
+  /// 세션이 비활성이면 무시(먼저 start 필요).
+  Future<void> switchTarget(String target) async {
+    if (!_active) return;
+    if (target == _target) return;
+    _target = target;
+    _setState(TranslateState.connecting);
+    _teardownConnection();
+    _reconnectAttempt = 0;
+    _connect();
+  }
+
   /// 통역 종료 및 연결/마이크 정리(플레이어/레코더 핸들은 유지).
   Future<void> stop() async {
     _active = false;

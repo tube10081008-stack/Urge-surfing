@@ -16,6 +16,8 @@ dependencies:
   flutter_sound: ^9.10.4
   # 마이크 권한.
   permission_handler: ^11.3.0
+  # 릴레이 주소/토큰/언어 설정 저장.
+  shared_preferences: ^2.2.0
 
 dev_dependencies:
   flutter_test:
