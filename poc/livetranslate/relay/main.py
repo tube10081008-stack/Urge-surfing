@@ -100,12 +100,26 @@ def _gemini_generate(model: str, body: dict) -> dict:
 
 
 def _first_text(resp: dict) -> str:
-    return resp["candidates"][0]["content"]["parts"][0]["text"].strip()
+    try:
+        return resp["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except (KeyError, IndexError, TypeError):
+        fr = (resp.get("candidates") or [{}])[0].get("finishReason")
+        raise HTTPException(status_code=502, detail=f"no text (finishReason={fr})")
 
 
 def _first_audio(resp: dict) -> bytes:
-    data = resp["candidates"][0]["content"]["parts"][0]["inlineData"]["data"]
-    return base64.b64decode(data)
+    try:
+        parts = resp["candidates"][0]["content"]["parts"]
+    except (KeyError, IndexError, TypeError):
+        fr = (resp.get("candidates") or [{}])[0].get("finishReason")
+        raise HTTPException(status_code=502, detail=f"no audio (finishReason={fr})")
+    for p in parts:
+        inline = p.get("inlineData")
+        if inline and inline.get("data"):
+            return base64.b64decode(inline["data"])
+    # 오디오가 없고 텍스트만 온 경우(모델이 읽지 않고 답하려 함).
+    txt = next((p.get("text", "") for p in parts if p.get("text")), "")
+    raise HTTPException(status_code=502, detail=f"TTS returned no audio: {txt[:120]}")
 
 
 def _tts_pcm(text: str) -> bytes:
@@ -169,8 +183,12 @@ def speak(payload: dict = Body(...), token: str = Query("")) -> dict:
         )
         translated = _first_text(tr)
         pcm = _tts_pcm(translated)
+    except HTTPException:
+        raise
     except urllib.error.HTTPError as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=exc.read().decode()[:200])
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}")
     return {"translated": translated, "audio": base64.b64encode(pcm).decode("ascii")}
 
 
@@ -207,8 +225,12 @@ def ocr(payload: dict = Body(...), token: str = Query("")) -> dict:
             },
         )
         parsed = json.loads(_first_text(resp))
+    except HTTPException:
+        raise
     except urllib.error.HTTPError as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=exc.read().decode()[:200])
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}")
     return {
         "original": parsed.get("original", ""),
         "translated": parsed.get("translated", ""),
@@ -290,8 +312,12 @@ def bargain(payload: dict = Body(...), token: str = Query("")) -> dict:
         )
         text = _first_text(tr)
         pcm = _tts_pcm(text)
+    except HTTPException:
+        raise
     except urllib.error.HTTPError as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=exc.read().decode()[:200])
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}")
     return {"text": text, "audio": base64.b64encode(pcm).decode("ascii")}
 
 
