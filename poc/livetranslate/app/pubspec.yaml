@@ -18,6 +18,10 @@ dependencies:
   permission_handler: ^11.3.0
   # 릴레이 주소/토큰/언어 설정 저장.
   shared_preferences: ^2.2.0
+  # 문구/OCR REST 호출.
+  http: ^1.2.1
+  # 카메라 OCR용 이미지 촬영/선택.
+  image_picker: ^1.1.0
 
 dev_dependencies:
   flutter_test:

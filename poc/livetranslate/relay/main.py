@@ -27,10 +27,12 @@ import base64
 import json
 import logging
 import os
+import urllib.error
+import urllib.request
 
 import websockets
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
+from fastapi import Body, FastAPI, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
 from websockets.exceptions import ConnectionClosed
 
 load_dotenv()
@@ -53,13 +55,151 @@ GOOGLE_WS_URL = (
     "?key={key}"
 )
 
+# REST(텍스트/비전/TTS)용 모델. 필요 시 환경변수로 교체.
+GEMINI_REST_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+)
+GEMINI_TEXT_MODEL = os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
+GEMINI_TTS_MODEL = os.environ.get("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts")
+
+# 언어코드 → 영어 이름(번역 지시문에 사용).
+LANG_NAMES = {
+    "ko": "Korean",
+    "zh-CN": "Simplified Chinese",
+    "zh-TW": "Traditional Chinese",
+    "en": "English",
+    "ja": "Japanese",
+}
+
 app = FastAPI(title="Gemini Live Translate Relay")
+
+
+def _require_token(token: str) -> None:
+    """REST 엔드포인트 토큰 검사(WS와 동일 정책)."""
+    if RELAY_TOKEN and token != RELAY_TOKEN:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=503, detail="server_misconfigured")
+
+
+def _gemini_generate(model: str, body: dict) -> dict:
+    """generativelanguage REST generateContent 호출(동기). 키는 서버 보관."""
+    url = GEMINI_REST_URL.format(model=model, key=GEMINI_API_KEY)
+    req = urllib.request.Request(
+        url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
+    )
+    with urllib.request.urlopen(req, timeout=90) as r:
+        return json.load(r)
+
+
+def _first_text(resp: dict) -> str:
+    return resp["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+
+def _first_audio(resp: dict) -> bytes:
+    data = resp["candidates"][0]["content"]["parts"][0]["inlineData"]["data"]
+    return base64.b64decode(data)
+
+
+def _tts_pcm(text: str) -> bytes:
+    """텍스트 → 24kHz PCM16 음성(Gemini TTS)."""
+    resp = _gemini_generate(
+        GEMINI_TTS_MODEL,
+        {
+            "contents": [{"parts": [{"text": text}]}],
+            "generationConfig": {
+                "responseModalities": ["AUDIO"],
+                "speechConfig": {
+                    "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Kore"}}
+                },
+            },
+        },
+    )
+    return _first_audio(resp)
 
 
 @app.get("/health")
 async def health() -> dict:
     """헬스체크. 키 설정 여부만 노출(키 값 자체는 비노출)."""
     return {"status": "ok", "model": GEMINI_LIVE_MODEL, "key_configured": bool(GEMINI_API_KEY)}
+
+
+@app.post("/speak")
+def speak(payload: dict = Body(...), token: str = Query("")) -> dict:
+    """문구 텍스트를 대상 언어로 번역 + 음성 합성.
+
+    body: {"text": "화장실 어디예요?", "targetLang": "zh-CN"}
+    반환: {"translated": "...", "audio": "<base64 PCM16 24kHz>"}
+    """
+    _require_token(token)
+    text = (payload.get("text") or "").strip()
+    target = payload.get("targetLang", "en")
+    if not text:
+        raise HTTPException(status_code=400, detail="empty text")
+    tname = LANG_NAMES.get(target, target)
+    try:
+        tr = _gemini_generate(
+            GEMINI_TEXT_MODEL,
+            {
+                "contents": [
+                    {
+                        "parts": [
+                            {
+                                "text": "Translate the following into "
+                                f"{tname}. Output only the translation, no "
+                                f"quotes or notes:\n{text}"
+                            }
+                        ]
+                    }
+                ]
+            },
+        )
+        translated = _first_text(tr)
+        pcm = _tts_pcm(translated)
+    except urllib.error.HTTPError as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=exc.read().decode()[:200])
+    return {"translated": translated, "audio": base64.b64encode(pcm).decode("ascii")}
+
+
+@app.post("/ocr")
+def ocr(payload: dict = Body(...), token: str = Query("")) -> dict:
+    """이미지 속 텍스트 인식 + 대상 언어 번역.
+
+    body: {"image": "<base64 jpeg>", "targetLang": "ko"}
+    반환: {"original": "...", "translated": "..."}
+    """
+    _require_token(token)
+    image = payload.get("image")
+    target = payload.get("targetLang", "ko")
+    if not image:
+        raise HTTPException(status_code=400, detail="no image")
+    tname = LANG_NAMES.get(target, target)
+    try:
+        resp = _gemini_generate(
+            GEMINI_TEXT_MODEL,
+            {
+                "contents": [
+                    {
+                        "parts": [
+                            {
+                                "text": "Read all text in this image. Then "
+                                f"translate it into {tname}. Respond ONLY as "
+                                'JSON {"original":"...","translated":"..."}.'
+                            },
+                            {"inlineData": {"mimeType": "image/jpeg", "data": image}},
+                        ]
+                    }
+                ],
+                "generationConfig": {"responseMimeType": "application/json"},
+            },
+        )
+        parsed = json.loads(_first_text(resp))
+    except urllib.error.HTTPError as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=exc.read().decode()[:200])
+    return {
+        "original": parsed.get("original", ""),
+        "translated": parsed.get("translated", ""),
+    }
 
 
 def _build_setup(target: str) -> dict:

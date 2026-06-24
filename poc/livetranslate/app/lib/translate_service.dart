@@ -178,8 +178,9 @@ class TranslateService {
   void _onMessage(dynamic message) {
     _lastInbound = DateTime.now(); // 어떤 수신이든 연결 생존 신호.
 
-    // 바이너리 = 번역된 오디오(PCM16/24kHz) → 즉시 재생.
+    // 바이너리 = 번역된 오디오(PCM16/24kHz) → 즉시 재생 + 다시듣기 버퍼에 누적.
     if (message is List<int>) {
+      _lastAudio.addAll(message);
       _player.uint8ListSink?.add(Uint8List.fromList(message));
       return;
     }
@@ -270,6 +271,22 @@ class TranslateService {
 
   /// 푸시투토크 캡처 on/off. true일 때만 마이크 입력이 릴레이로 전송된다.
   void setCapturing(bool value) => _capturing = value;
+
+  /// 직전 통역 음성(다시듣기용) 버퍼. 새 발화 시작 시 비운다.
+  final List<int> _lastAudio = [];
+  bool get hasLastAudio => _lastAudio.isNotEmpty;
+  void clearLastUtterance() => _lastAudio.clear();
+
+  /// 임의의 PCM16/24kHz 음성을 재생(문구/OCR TTS, 다시듣기 공용).
+  /// 통역 세션과 무관하게 플레이어만 열어 재생한다.
+  Future<void> playPcm(List<int> pcm) async {
+    if (pcm.isEmpty) return;
+    await _openPlayer();
+    _player.uint8ListSink?.add(Uint8List.fromList(pcm));
+  }
+
+  /// 직전 통역 다시 듣기.
+  Future<void> replayLast() => playPcm(_lastAudio);
 
   /// 통역 방향(대상 언어) 전환. 마이크/플레이어는 유지하고 WS만 재연결한다.
   /// 세션이 비활성이면 무시(먼저 start 필요).

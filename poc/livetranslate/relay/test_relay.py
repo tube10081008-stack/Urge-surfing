@@ -128,6 +128,24 @@ def test_rejects_bad_token(monkeypatch):
         assert msg == {"type": "error", "value": "unauthorized"}
 
 
+def test_speak_requires_text(client):
+    r = client.post("/speak", json={"text": "", "targetLang": "zh-CN"})
+    assert r.status_code == 400
+
+
+def test_ocr_requires_image(client):
+    r = client.post("/ocr", json={"targetLang": "ko"})
+    assert r.status_code == 400
+
+
+def test_speak_bad_token(monkeypatch):
+    monkeypatch.setattr(main, "GEMINI_API_KEY", "k")
+    monkeypatch.setattr(main, "RELAY_TOKEN", "secret")
+    c = TestClient(main.app)
+    r = c.post("/speak?token=wrong", json={"text": "hi", "targetLang": "en"})
+    assert r.status_code == 401
+
+
 def test_health(monkeypatch):
     monkeypatch.setattr(main, "GEMINI_API_KEY", "")
     c = TestClient(main.app)

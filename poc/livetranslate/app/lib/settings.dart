@@ -64,6 +64,62 @@ String paneText(String lang, String key) =>
     (kPaneStrings[lang] ?? kPaneStrings['en']!)[key] ??
     kPaneStrings['en']![key]!;
 
+/// 자주 쓰는 여행 문구(내 언어 기준). 탭하면 상대 언어로 번역·음성 출력.
+const Map<String, List<String>> kPresets = {
+  'ko': [
+    '안녕하세요',
+    '감사합니다',
+    '화장실이 어디예요?',
+    '이거 얼마예요?',
+    '너무 비싸요, 깎아주세요',
+    '맵지 않게 해주세요',
+    '계산해 주세요',
+    '도와주세요',
+  ],
+  'en': [
+    'Hello',
+    'Thank you',
+    'Where is the restroom?',
+    'How much is this?',
+    'Too expensive, can you lower the price?',
+    'Not spicy, please',
+    'Check, please',
+    'Please help me',
+  ],
+  'zh-CN': [
+    '你好',
+    '谢谢',
+    '洗手间在哪里?',
+    '这个多少钱?',
+    '太贵了，能便宜点吗?',
+    '请不要辣',
+    '请结账',
+    '请帮帮我',
+  ],
+  'zh-TW': [
+    '你好',
+    '謝謝',
+    '洗手間在哪裡?',
+    '這個多少錢?',
+    '太貴了，能便宜點嗎?',
+    '請不要辣',
+    '請結帳',
+    '請幫幫我',
+  ],
+  'ja': [
+    'こんにちは',
+    'ありがとうございます',
+    'トイレはどこですか?',
+    'これはいくらですか?',
+    '高すぎます、安くしてください',
+    '辛くしないでください',
+    'お会計お願いします',
+    '助けてください',
+  ],
+};
+
+List<String> presetsFor(String lang) => kPresets[lang] ?? kPresets['en']!;
+
 /// 앱 설정(릴레이 주소/토큰 + 대화 언어쌍). SharedPreferences에 저장.
 class AppSettings {
   String relayUrl;

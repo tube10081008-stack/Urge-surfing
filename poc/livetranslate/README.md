@@ -179,6 +179,19 @@ flutter build apk --release \
 > 서명은 별도 keystore 설정이 필요하다. `poc/livetranslate/app/**` 푸시 시에도
 > 자동 빌드된다.
 
+## 부가 기능 (하단 바)
+
+- **⭐ 문구**: 자주 쓰는 여행 문구를 탭하면 상대 언어로 번역해 음성 출력
+  (릴레이 `/speak`: 텍스트 번역 + Gemini TTS).
+- **📷 카메라 번역**: 메뉴판·간판을 촬영하면 텍스트 인식 + 내 언어 번역
+  (릴레이 `/ocr`: Gemini 비전). 결과 다이얼로그에서 "들려주기"로 음성 재생.
+- **🔁 다시듣기**: 직전 통역 음성을 다시 재생.
+
+> ⚠️ `/speak`·`/ocr` 는 릴레이의 **새 엔드포인트**다. 기존 배포본에는 없으니
+> 이 기능을 쓰려면 **릴레이를 재배포**해야 한다(`fly deploy` 등). 두 엔드포인트는
+> 텍스트/비전/TTS REST 모델(`GEMINI_TEXT_MODEL`=gemini-2.5-flash,
+> `GEMINI_TTS_MODEL`=gemini-2.5-flash-preview-tts)을 쓰며, 같은 API 키로 동작한다.
+
 ## 네트워크 복원력 (중국 환경 대비)
 
 GFW는 TCP 연결은 살려둔 채 데이터만 조용히 끊는(throttle/blackhole) 경우가

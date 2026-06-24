@@ -31,8 +31,8 @@ fi
 PLIST="ios/Runner/Info.plist"
 echo "==> iOS 마이크 권한 주입: $PLIST"
 if [ -f "$PLIST" ] && ! grep -q "NSMicrophoneUsageDescription" "$PLIST"; then
-  perl -0pi -e 's#(<dict>)#$1\n\t<key>NSMicrophoneUsageDescription</key>\n\t<string>실시간 통역을 위해 마이크를 사용합니다.</string>#' "$PLIST"
-  echo "   추가됨(NSMicrophoneUsageDescription)"
+  perl -0pi -e 's#(<dict>)#$1\n\t<key>NSMicrophoneUsageDescription</key>\n\t<string>실시간 통역을 위해 마이크를 사용합니다.</string>\n\t<key>NSCameraUsageDescription</key>\n\t<string>메뉴판·표지판 번역을 위해 카메라를 사용합니다.</string>\n\t<key>NSPhotoLibraryUsageDescription</key>\n\t<string>이미지 번역을 위해 사진 접근을 사용합니다.</string>#' "$PLIST"
+  echo "   추가됨(Microphone/Camera/PhotoLibrary)"
 else
   echo "   이미 존재하거나 파일 없음 — 건너뜀"
 fi

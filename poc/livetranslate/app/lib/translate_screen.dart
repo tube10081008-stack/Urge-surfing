@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
+import 'relay_api.dart';
 import 'settings.dart';
 import 'translate_service.dart';
 
@@ -23,6 +25,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
   TranslateState _state = TranslateState.idle;
   String? _dir; // 현재 세션 방향 'me' | 'other'
   bool _holding = false; // 버튼을 누르고 있는 중인가(푸시투토크)
+  bool _busy = false; // 문구/OCR 네트워크 처리 중
+
+  RelayApi? _api() {
+    final s = _settings;
+    if (s == null || !s.isConfigured) return null;
+    return RelayApi(s.relayUrl, s.token);
+  }
 
   @override
   void initState() {
@@ -58,6 +67,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       return;
     }
     setState(() => _holding = true);
+    _service.clearLastUtterance(); // 새 발화 시작 → 다시듣기 버퍼 초기화.
 
     // 내 칸: 내 언어로 말함 → 상대 언어로 출력(target=상대언어).
     // 상대 칸: 상대 언어로 말함 → 내 언어로 출력(target=내언어).
@@ -87,6 +97,136 @@ class _ConversationScreenState extends State<ConversationScreen> {
   void _release() {
     _service.setCapturing(false);
     if (mounted) setState(() => _holding = false);
+  }
+
+  void _snack(String msg) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
+  /// 텍스트를 대상 언어로 번역·음성 출력(문구/OCR 듣기 공용).
+  Future<void> _speakText(String text, String targetLang) async {
+    final api = _api();
+    if (api == null) {
+      _openSettings(force: true);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final res = await api.speak(text, targetLang);
+      await _service.playPcm(res.audio);
+      _snack('🔊 ${res.translated}');
+    } catch (e) {
+      _snack('문구 음성 실패: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  // ⭐ 자주 쓰는 문구
+  void _onPresets() {
+    final s = _settings;
+    if (s == null || !s.isConfigured) {
+      _openSettings(force: true);
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('자주 쓰는 문구 (상대 언어로 들려줍니다)',
+                  style: Theme.of(ctx).textTheme.titleMedium),
+            ),
+            for (final p in presetsFor(s.myLang))
+              ListTile(
+                title: Text(p),
+                trailing: const Icon(Icons.volume_up),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _speakText(p, s.otherLang);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 📷 카메라 OCR 번역
+  Future<void> _onCamera() async {
+    final s = _settings;
+    if (s == null || !s.isConfigured) {
+      _openSettings(force: true);
+      return;
+    }
+    final XFile? shot = await ImagePicker()
+        .pickImage(source: ImageSource.camera, imageQuality: 70, maxWidth: 1600);
+    if (shot == null) return;
+    final api = _api();
+    if (api == null) return;
+    setState(() => _busy = true);
+    try {
+      final bytes = await shot.readAsBytes();
+      final res = await api.ocr(bytes, s.myLang); // 내 언어로 읽기
+      if (mounted) _showOcrResult(res.original, res.translated, s.myLang);
+    } catch (e) {
+      _snack('이미지 번역 실패: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _showOcrResult(String original, String translated, String myLang) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('카메라 번역'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('원문', style: Theme.of(ctx).textTheme.labelMedium),
+              const SizedBox(height: 4),
+              SelectableText(original.isEmpty ? '(인식된 텍스트 없음)' : original),
+              const Divider(height: 24),
+              Text('번역', style: Theme.of(ctx).textTheme.labelMedium),
+              const SizedBox(height: 4),
+              SelectableText(translated),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('닫기'),
+          ),
+          if (translated.isNotEmpty)
+            FilledButton.icon(
+              icon: const Icon(Icons.volume_up),
+              label: const Text('들려주기'),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _speakText(translated, myLang);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // 🔁 마지막 통역 다시듣기
+  Future<void> _onReplay() async {
+    if (!_service.hasLastAudio) {
+      _snack('다시 들을 통역이 없어요');
+      return;
+    }
+    await _service.replayLast();
   }
 
   // active 칸의 상태 문구를 그 화자 언어(uiLang)로.
@@ -172,7 +312,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
             onPressed: _running ? null : () => _openSettings(),
           ),
         ],
+        bottom: _busy
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(3),
+                child: LinearProgressIndicator(minHeight: 3),
+              )
+            : null,
       ),
+      bottomNavigationBar: s == null ? null : _bottomBar(),
       body: s == null
           ? const Center(child: CircularProgressIndicator())
           : Column(
@@ -208,6 +355,37 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _bottomBar() {
+    return BottomAppBar(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _barButton(Icons.star, '문구', _busy ? null : _onPresets),
+          _barButton(Icons.photo_camera, '카메라 번역', _busy ? null : _onCamera),
+          _barButton(Icons.replay, '다시듣기', _busy ? null : _onReplay),
+        ],
+      ),
+    );
+  }
+
+  Widget _barButton(IconData icon, String label, VoidCallback? onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon),
+            const SizedBox(height: 2),
+            Text(label, style: const TextStyle(fontSize: 12)),
+          ],
+        ),
+      ),
     );
   }
 
