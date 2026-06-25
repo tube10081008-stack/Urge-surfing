@@ -136,10 +136,11 @@ class TranslateService {
     }
     _recordController = StreamController<Uint8List>();
     _micSub = _recordController!.stream.listen((chunk) {
-      // 연결됐고 '말하는 중(_capturing)'일 때만 송신.
-      // 손을 뗀 동안(재생 중)은 차단해 피드백/반복을 막는다.
+      // 듣기 on이고, 번역 음성 재생 중이 아닐 때만 송신(에코 차단).
       final channel = _channel;
-      if (channel != null && _capturing) channel.sink.add(chunk);
+      if (channel != null && _capturing && !_outputActive) {
+        channel.sink.add(chunk);
+      }
     });
     await _recorder.startRecorder(
       codec: Codec.pcm16,
@@ -181,6 +182,7 @@ class TranslateService {
     // 바이너리 = 번역된 오디오(PCM16/24kHz) → 즉시 재생 + 다시듣기 버퍼에 누적.
     if (message is List<int>) {
       _lastAudio.addAll(message);
+      _extendPlayback(message.length); // 재생 동안 마이크 차단
       _player.uint8ListSink?.add(Uint8List.fromList(message));
       return;
     }
@@ -269,29 +271,37 @@ class TranslateService {
     });
   }
 
-  /// 푸시투토크 캡처 on/off. true일 때만 마이크 입력이 릴레이로 전송된다.
-  /// 수동 활동감지(VAD off): 누름→start, 뗌→end 신호로 발화 경계를 명시해
-  /// 손 떼는 즉시 번역이 확정되도록 한다(지연 최소).
-  void setCapturing(bool value) {
-    final was = _capturing;
-    _capturing = value;
-    if (!was && value) {
-      _channel?.sink.add(jsonEncode({'type': 'start'}));
-    } else if (was && !value) {
-      _channel?.sink.add(jsonEncode({'type': 'end'}));
-    }
-  }
+  /// 듣기 on/off. true이고 '재생 중'이 아닐 때만 마이크 입력을 전송한다.
+  /// (자동 VAD가 발화 경계를 감지 → 누르고 있을 필요 없음.)
+  void setCapturing(bool value) => _capturing = value;
+
+  // 에코 억제: 번역 음성이 재생되는 동안 마이크를 자동으로 막는다(출력이
+  // 마이크로 되돌아가 재번역/반복되는 피드백 차단). 수신 오디오 길이로 재생
+  // 종료 시점을 추정하고 여유(margin)를 둔다.
+  DateTime _playUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  static const Duration _echoMargin = Duration(milliseconds: 600);
+  bool get _outputActive =>
+      DateTime.now().isBefore(_playUntil.add(_echoMargin));
 
   /// 직전 통역 음성(다시듣기용) 버퍼. 새 발화 시작 시 비운다.
   final List<int> _lastAudio = [];
   bool get hasLastAudio => _lastAudio.isNotEmpty;
   void clearLastUtterance() => _lastAudio.clear();
 
+  /// 24kHz PCM16 바이트 길이로 재생 종료 시점을 갱신(마이크 차단 구간 연장).
+  void _extendPlayback(int byteLen) {
+    final now = DateTime.now();
+    final base = now.isAfter(_playUntil) ? now : _playUntil;
+    // 24kHz mono 16-bit → 48000 bytes/sec.
+    _playUntil = base.add(Duration(milliseconds: (byteLen / 48).round()));
+  }
+
   /// 임의의 PCM16/24kHz 음성을 재생(문구/OCR TTS, 다시듣기 공용).
   /// 통역 세션과 무관하게 플레이어만 열어 재생한다.
   Future<void> playPcm(List<int> pcm) async {
     if (pcm.isEmpty) return;
     await _openPlayer();
+    _extendPlayback(pcm.length);
     _player.uint8ListSink?.add(Uint8List.fromList(pcm));
   }
 

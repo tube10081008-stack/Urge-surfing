@@ -26,8 +26,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   AppSettings? _settings;
   TranslateState _state = TranslateState.idle;
-  String? _dir; // 현재 세션 방향 'me' | 'other'
-  bool _holding = false; // 버튼을 누르고 있는 중인가(푸시투토크)
+  String? _dir; // 현재 듣는 방향 'me' | 'other'
   bool _busy = false; // 문구/OCR 네트워크 처리 중
 
   RelayApi? _api() {
@@ -61,45 +60,40 @@ class _ConversationScreenState extends State<ConversationScreen> {
       _state == TranslateState.ready ||
       _state == TranslateState.reconnecting;
 
-  // 누르는 순간: 세션 시작/방향 전환 + 캡처 on(푸시투토크).
-  Future<void> _pressDown(String dir) async {
+  // 탭: 방향 선택/전환하며 듣기 시작. 같은 칸 다시 탭 → 정지.
+  // (자동 VAD가 말의 시작/끝을 감지하고, 재생 중엔 마이크가 자동 차단됨.)
+  Future<void> _tapDirection(String dir) async {
     final s = _settings;
     if (s == null) return;
     if (!s.isConfigured) {
       _openSettings(force: true);
       return;
     }
-    setState(() => _holding = true);
-    _service.clearLastUtterance(); // 새 발화 시작 → 다시듣기 버퍼 초기화.
+
+    // 활성 칸을 다시 탭 → 정지.
+    if (_dir == dir && _running) {
+      await _service.stop();
+      if (mounted) setState(() => _dir = null);
+      return;
+    }
 
     // 내 칸: 내 언어로 말함 → 상대 언어로 출력(target=상대언어).
     // 상대 칸: 상대 언어로 말함 → 내 언어로 출력(target=내언어).
     final target = dir == 'me' ? s.otherLang : s.myLang;
-
     try {
+      _service.clearLastUtterance(); // 새 턴 → 다시듣기 버퍼 초기화.
       if (!_running) {
         await _service.start(
             target: target, relayUrl: s.relayUrl, token: s.token);
       } else if (_dir != dir) {
-        await _service.switchTarget(target); // 방향만 전환(마이크 유지).
+        await _service.switchTarget(target);
       }
+      _service.setCapturing(true);
       if (mounted) setState(() => _dir = dir);
-      // 연결 대기 중 손을 뗐을 수 있으니, 여전히 누르고 있을 때만 캡처 on.
-      _service.setCapturing(_holding);
     } catch (e) {
       _service.setCapturing(false);
-      if (mounted) {
-        setState(() => _holding = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
-      }
+      _snack('$e');
     }
-  }
-
-  // 손을 떼는 순간: 캡처 off → 번역 음성 재생(마이크 차단으로 피드백 방지).
-  void _release() {
-    _service.setCapturing(false);
-    if (mounted) setState(() => _holding = false);
   }
 
   void _snack(String msg) {
@@ -379,25 +373,22 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }) {
     // 이 칸을 쓰는 사람의 언어 = spokenLang. UI 문구를 그 언어로 보여준다.
     final uiLang = spokenLang;
-    final active = _holding && _dir == dir;
+    final active = _dir == dir && _running;
     final scheme = Theme.of(context).colorScheme;
     final bg = active ? scheme.primary : scheme.surfaceContainerHighest;
     final fg = active ? scheme.onPrimary : scheme.onSurfaceVariant;
     final spoken = kAutonym[spokenLang] ?? spokenLang;
     final out = kAutonym[outLang] ?? outLang;
 
-    // 부모(Expanded)가 높이를 주므로 여기선 Expanded를 쓰지 않는다.
-    // Listener로 '누르고 있는 동안만' 캡처(푸시투토크).
+    // 부모(Expanded)가 높이를 줌. 탭하면 그 방향으로 듣기 시작/정지.
     return Padding(
       padding: const EdgeInsets.all(8),
-      child: Listener(
-        onPointerDown:
-            _settings == null ? null : (_) => _pressDown(dir),
-        onPointerUp: (_) => _release(),
-        onPointerCancel: (_) => _release(),
-        child: Material(
-          color: bg,
+      child: Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(24),
+        child: InkWell(
           borderRadius: BorderRadius.circular(24),
+          onTap: _settings == null ? null : () => _tapDirection(dir),
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
