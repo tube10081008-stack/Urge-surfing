@@ -1,0 +1,40 @@
+name: Deploy Ledger PWA to GitHub Pages
+
+# ledger/ 변경을 push하면 자동으로 GitHub Pages에 배포한다.
+# (한 번만) 저장소 Settings → Pages → Source 를 "GitHub Actions"로 설정해야 동작.
+on:
+  push:
+    branches:
+      - main
+      - claude/app-deployment-process-51gcg1
+    paths:
+      - "ledger/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 동시 배포 1개만 (최신 우선)
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Upload ledger/ as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ledger
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
