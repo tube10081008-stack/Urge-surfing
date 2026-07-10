@@ -27,6 +27,42 @@ services:
           name: urge-surfing-db
           property: connectionString
 
+  # ── 지오(마케팅 오케스트라) 백엔드 — 계정·영속 API ──────────────
+  - type: web
+    name: geo-marketing-api
+    runtime: python
+    plan: free
+    rootDir: marketing-orchestra/backend
+    branch: claude/wonderful-lovelace-54xws3
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate"
+    startCommand: "gunicorn config.wsgi"
+    healthCheckPath: /api/v1/health/
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ".onrender.com,localhost,127.0.0.1"
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        value: "https://geo-marketing-api.onrender.com"
+      - key: DJANGO_SECURE_SSL_REDIRECT
+        value: "False"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://urge-surfing.vercel.app"
+      - key: GEMINI_API_KEY
+        sync: false               # 대시보드에서 직접 입력(코드/저장소 미포함)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: geo-marketing-db
+          property: connectionString
+
 databases:
   - name: urge-surfing-db
+    plan: free
+  # ⚠️ Render 무료 Postgres는 계정당 1개 제한 — 이미 urge-surfing-db가 살아있으면
+  # 이 DB 생성이 거부될 수 있음. 그 경우 옛 DB 삭제(도박 PoC 데모용) 또는 유료 선택.
+  - name: geo-marketing-db
     plan: free
