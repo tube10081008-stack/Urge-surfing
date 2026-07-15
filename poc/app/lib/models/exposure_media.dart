@@ -1,5 +1,10 @@
 /// 노출 자극(Exposure Media) 모델.
 /// 백엔드 `GET /exposure-media` 응답 1건에 대응한다.
+
+/// 이 카테고리의 항목은 "노출 자극"이 아니라 파도타기 중 재생하는
+/// 상담 음성 가이드로 취급한다(홈 자극 목록에서 제외).
+const String kGuideCategory = '음성가이드';
+
 class ExposureMedia {
   final int id;
 

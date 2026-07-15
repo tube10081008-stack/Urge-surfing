@@ -15,8 +15,8 @@ class HomeScreen extends ConsumerWidget {
     final controller = ref.read(sessionControllerProvider.notifier);
     controller.reset();
 
-    // 노출 자극 선택(첫 번째 자극 사용 — P0는 1종)
-    final mediaList = await ref.read(exposureMediaProvider.future);
+    // 노출 자극 선택(첫 번째 자극 사용 — P0는 1종, 음성 가이드는 제외)
+    final mediaList = await ref.read(exposureStimuliProvider.future);
     if (mediaList.isNotEmpty) {
       controller.selectMedia(mediaList.first);
     }
@@ -35,7 +35,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mediaAsync = ref.watch(exposureMediaProvider);
+    final mediaAsync = ref.watch(exposureStimuliProvider);
     final state = ref.watch(sessionControllerProvider);
 
     return Scaffold(
@@ -98,6 +98,9 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     error: (e, _) => Text('자극을 불러오지 못했어요: $e'),
                     data: (list) {
+                      if (list.isEmpty) {
+                        return const Text('등록된 노출 자극이 없어요.');
+                      }
                       final m = list.first;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

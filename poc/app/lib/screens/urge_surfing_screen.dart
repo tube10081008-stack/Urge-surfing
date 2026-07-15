@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
 
 import '../models/coping_skill.dart';
+import '../models/exposure_media.dart';
 import '../state/session_controller.dart';
 import '../widgets/breathing_guide.dart';
 import '../widgets/sos_button.dart';
@@ -63,22 +65,45 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
     ref.read(sessionControllerProvider.notifier).setCopingSkill(skill.key);
   }
 
+  /// 백엔드에 상담 음성 가이드가 등록돼 있으면 대처법 목록에 추가.
+  List<CopingSkill> _skillsWith(ExposureMedia? guide) {
+    if (guide == null) return kCopingSkills;
+    return [
+      ...kCopingSkills,
+      const CopingSkill(
+        key: 'audio_guide',
+        label: '상담 음성 가이드',
+        tagline: '"당신은 당신의 생각이 아니에요" — 상담사 음성과 함께 파도를 지나요',
+        icon: Icons.headphones,
+        kind: CopingKind.audioGuide,
+      ),
+    ];
+  }
+
   /// 선택된 기술에 맞는 가이드 위젯.
-  Widget _buildGuide() {
-    if (_skill.kind == CopingKind.breathing) {
-      return BreathingGuide(
-        key: ValueKey(_skill.key),
-        inhale: _skill.inhale,
-        hold1: _skill.hold1,
-        exhale: _skill.exhale,
-        hold2: _skill.hold2,
-      );
+  Widget _buildGuide(ExposureMedia? guide) {
+    switch (_skill.kind) {
+      case CopingKind.breathing:
+        return BreathingGuide(
+          key: ValueKey(_skill.key),
+          inhale: _skill.inhale,
+          hold1: _skill.hold1,
+          exhale: _skill.exhale,
+          hold2: _skill.hold2,
+        );
+      case CopingKind.steps:
+        return StepGuide(
+          key: ValueKey(_skill.key),
+          steps: _skill.steps,
+          stepSec: _skill.stepSec,
+        );
+      case CopingKind.audioGuide:
+        return _AudioGuidePlayer(
+          key: ValueKey(_skill.key),
+          url: guide?.mediaUrl ?? '',
+          title: guide?.title ?? '상담 음성 가이드',
+        );
     }
-    return StepGuide(
-      key: ValueKey(_skill.key),
-      steps: _skill.steps,
-      stepSec: _skill.stepSec,
-    );
   }
 
   @override
@@ -117,6 +142,8 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
   @override
   Widget build(BuildContext context) {
     final remaining = totalSec - _elapsed;
+    final guide = ref.watch(guideAudioProvider).valueOrNull;
+    final skills = _skillsWith(guide);
 
     return Scaffold(
       backgroundColor: const Color(0xFFEAF3F8),
@@ -189,10 +216,10 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: kCopingSkills.length,
+                    itemCount: skills.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 8),
                     itemBuilder: (context, i) {
-                      final skill = kCopingSkills[i];
+                      final skill = skills[i];
                       final selected = skill.key == _skill.key;
                       return ChoiceChip(
                         avatar: Icon(
@@ -227,7 +254,7 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
                 const Spacer(),
 
                 // 중앙 대처 기술 가이드(선택에 따라 전환)
-                _buildGuide(),
+                _buildGuide(guide),
                 const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -263,6 +290,151 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 상담사 음성 가이드 스트리밍 플레이어.
+/// 칩 선택 시 자동 재생, 다른 기술로 바꾸면 위젯이 dispose 되며 정지된다.
+class _AudioGuidePlayer extends StatefulWidget {
+  final String url;
+  final String title;
+
+  const _AudioGuidePlayer({super.key, required this.url, required this.title});
+
+  @override
+  State<_AudioGuidePlayer> createState() => _AudioGuidePlayerState();
+}
+
+class _AudioGuidePlayerState extends State<_AudioGuidePlayer> {
+  VideoPlayerController? _c;
+  bool _ready = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    if (!widget.url.startsWith('http')) {
+      setState(() => _error = '가이드 URL이 없어요');
+      return;
+    }
+    try {
+      final c = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+      _c = c;
+      await c.initialize();
+      await c.play();
+      if (mounted) setState(() => _ready = true);
+    } catch (e) {
+      if (mounted) setState(() => _error = '재생 실패: 네트워크를 확인해 주세요');
+    }
+  }
+
+  @override
+  void dispose() {
+    _c?.dispose();
+    super.dispose();
+  }
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes;
+    final s = (d.inSeconds % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFF4F8FB0);
+    return Container(
+      width: 280,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withOpacity(0.25),
+            blurRadius: 20,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.headphones, size: 44, color: accent),
+          const SizedBox(height: 10),
+          Text(
+            widget.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF2C5066),
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (_error != null)
+            Text(_error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: Colors.redAccent))
+          else if (!_ready)
+            const SizedBox(
+              height: 40,
+              child: Center(
+                child: CircularProgressIndicator(strokeWidth: 2, color: accent),
+              ),
+            )
+          else
+            ValueListenableBuilder<VideoPlayerValue>(
+              valueListenable: _c!,
+              builder: (context, v, _) {
+                final pos = v.position;
+                final dur = v.duration;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: dur.inMilliseconds == 0
+                            ? 0
+                            : pos.inMilliseconds / dur.inMilliseconds,
+                        minHeight: 5,
+                        backgroundColor: accent.withOpacity(0.12),
+                        color: accent,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_fmt(pos),
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade600)),
+                        IconButton(
+                          iconSize: 40,
+                          color: accent,
+                          icon: Icon(v.isPlaying
+                              ? Icons.pause_circle_filled
+                              : Icons.play_circle_filled),
+                          onPressed: () =>
+                              v.isPlaying ? _c!.pause() : _c!.play(),
+                        ),
+                        Text(_fmt(dur),
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade600)),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
         ],
       ),
     );

@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 /// 대처 기술 종류.
 /// - breathing: 호흡 가이드(확장/수축 원)
 /// - steps: 단계별 안내(오감 그라운딩, 근육 이완 등)
-enum CopingKind { breathing, steps }
+/// - audioGuide: 상담사 음성 가이드 스트리밍(백엔드에 등록된 URL)
+enum CopingKind { breathing, steps, audioGuide }
 
 /// 충동 파도타기 중 사용할 대처 기술 정의.
 class CopingSkill {

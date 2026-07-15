@@ -224,6 +224,22 @@ final exposureMediaProvider = FutureProvider<List<ExposureMedia>>((ref) async {
   ];
 });
 
+/// 홈에서 노출 자극으로 쓸 목록(상담 음성 가이드는 제외).
+final exposureStimuliProvider =
+    FutureProvider<List<ExposureMedia>>((ref) async {
+  final list = await ref.watch(exposureMediaProvider.future);
+  return list.where((m) => m.category != kGuideCategory).toList();
+});
+
+/// 파도타기 중 재생할 상담 음성 가이드(등록돼 있으면 첫 항목).
+final guideAudioProvider = FutureProvider<ExposureMedia?>((ref) async {
+  final list = await ref.watch(exposureMediaProvider.future);
+  for (final m in list) {
+    if (m.category == kGuideCategory && m.hasPlayableUrl) return m;
+  }
+  return null;
+});
+
 /// 대시보드 VAS 추세 provider (GET /dashboard/vas-trend).
 /// 진입할 때마다 최신 기록을 다시 불러온다.
 final vasTrendProvider =

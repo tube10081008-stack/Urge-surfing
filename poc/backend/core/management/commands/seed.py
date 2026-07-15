@@ -18,6 +18,13 @@ _CDN = (
     "e6f86ab3ce1d575b2a8e204ae8431cfee41341f1/poc/media/exposure"
 )
 
+# 상담사 음성 가이드(파도타기 중 재생). category='음성가이드'는 앱에서
+# 노출 자극 목록에서 제외되고, 대처법 "상담 음성 가이드"로 표시된다.
+_CDN_GUIDE = (
+    "https://cdn.jsdelivr.net/gh/tube10081008-stack/Urge-surfing@"
+    "7c6e8dfef3a30be714ac29b20b82626690016a20/poc/media/guide"
+)
+
 # seed 가 기존 행의 media_url 을 덮어써도 되는 "데모 호스트"(관리자 실제 URL은 보존).
 _DEMO_HOSTS = (
     "cdn.jsdelivr.net",
@@ -59,6 +66,15 @@ SEED_MEDIA = [
         "intensity": 2,
         "asset_ref": "win_jingle.wav",
         "media_url": f"{_CDN}/win_jingle.wav",
+    },
+    {
+        # 노출 자극이 아닌 파도타기 대처용 음성 가이드(1회기, 7.4분)
+        "title": "상담사 음성 가이드 · 1회기",
+        "media_type": ExposureMedia.MediaType.AUDIO,
+        "category": "음성가이드",
+        "intensity": 1,
+        "asset_ref": "counselor_guide_01.mp3",
+        "media_url": f"{_CDN_GUIDE}/counselor_guide_01.mp3",
     },
 ]
 
