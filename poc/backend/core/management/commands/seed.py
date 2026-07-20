@@ -22,7 +22,7 @@ _CDN = (
 # 노출 자극 목록에서 제외되고, 대처법 "상담 음성 가이드"로 표시된다.
 _CDN_GUIDE = (
     "https://cdn.jsdelivr.net/gh/tube10081008-stack/Urge-surfing@"
-    "7c6e8dfef3a30be714ac29b20b82626690016a20/poc/media/guide"
+    "b9affcbd5a8cdd0be459b381ef7448d23577dd3a/poc/media/guide"
 )
 
 # seed 가 기존 행의 media_url 을 덮어써도 되는 "데모 호스트"(관리자 실제 URL은 보존).
