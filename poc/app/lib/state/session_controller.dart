@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
 import '../models/exposure_media.dart';
+import '../models/life_compass.dart';
 import '../models/training_session.dart';
 import '../models/vas_trend.dart';
 
@@ -247,4 +248,10 @@ final vasTrendProvider =
     FutureProvider.autoDispose<List<VasTrendPoint>>((ref) async {
   final api = ref.watch(apiClientProvider);
   return api.fetchVasTrend();
+});
+
+/// 삶의 나침반 provider (GET /compass). 파도타기/결과에서 리마인드에 사용.
+final compassProvider = FutureProvider<LifeCompass>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  return api.fetchCompass();
 });

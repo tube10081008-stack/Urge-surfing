@@ -35,6 +35,9 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
   /// 현재 선택된 대처 기술(기본: 4-7-8 호흡).
   CopingSkill _skill = kCopingSkills.first;
 
+  /// 긴 음성 가이드 재생 중 3분 자동종료를 억제(끊김 방지).
+  bool _autoFinishSuppressed = false;
+
   /// 진행도에 따라 보여줄 코칭 자막(시간 구간별).
   static const List<({double until, String text})> _coaching = [
     (until: 0.15, text: '지금 느끼는 충동을 그대로 알아차려 보세요. 밀어내지 않아도 괜찮아요.'),
@@ -55,7 +58,13 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
       if (!mounted) return;
       setState(() => _elapsed++);
       if (_elapsed >= totalSec) {
-        _finish();
+        // 음성 가이드 재생 중이면 자동 종료를 멈춘다(긴 오디오가 끊기지 않도록).
+        // 한 번 억제되면 이후 다른 대처법으로 바꿔도 자동 종료하지 않음.
+        if (_skill.kind == CopingKind.audioGuide) {
+          _autoFinishSuppressed = true;
+        } else if (!_autoFinishSuppressed) {
+          _finish();
+        }
       }
     });
   }
@@ -156,7 +165,8 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final remaining = totalSec - _elapsed;
+    final remaining = (totalSec - _elapsed).clamp(0, totalSec);
+    final isAudio = _skill.kind == CopingKind.audioGuide;
     final guides = ref.watch(guidesProvider).valueOrNull ?? const [];
     final skills = _skillsWith(guides);
 
@@ -175,17 +185,17 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 12),
-                // 타이머
+                // 타이머 (음성 가이드 재생 중엔 시간 압박 대신 안내)
                 Text(
-                  _fmt(remaining),
+                  isAudio ? '🎧' : _fmt(remaining),
                   style: const TextStyle(
                     fontSize: 44,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF2C5066),
                   ),
                 ),
-                const Text('남은 시간',
-                    style: TextStyle(color: Color(0xFF5A7A8C))),
+                Text(isAudio ? '음성 가이드에 집중하세요' : '남은 시간',
+                    style: const TextStyle(color: Color(0xFF5A7A8C))),
                 const SizedBox(height: 8),
 
                 // 진행 바

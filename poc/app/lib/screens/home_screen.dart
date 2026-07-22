@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/session_controller.dart';
 import '../widgets/sos_button.dart';
+import 'compass_screen.dart';
 import 'dashboard_screen.dart';
 import 'vas_input_screen.dart';
 
@@ -46,6 +47,13 @@ class HomeScreen extends ConsumerWidget {
         foregroundColor: const Color(0xFF2C5066),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.explore_outlined),
+            tooltip: '삶의 나침반',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CompassScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.insights),
             tooltip: '내 기록',

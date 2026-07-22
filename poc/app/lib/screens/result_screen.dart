@@ -119,6 +119,46 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 ),
               ),
 
+              const SizedBox(height: 16),
+              // 삶의 나침반 리마인드 — 왜 이 파도를 넘겼는가
+              ref.watch(compassProvider).maybeWhen(
+                    data: (c) => c.lifeGoal.isEmpty
+                        ? const SizedBox.shrink()
+                        : Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFBF3F5),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.explore_outlined,
+                                    color: Color(0xFFE0607A)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('오늘 이 파도를 넘긴 건',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF8A6B72))),
+                                      const SizedBox(height: 4),
+                                      Text(c.lifeGoal,
+                                          style: const TextStyle(
+                                              fontSize: 15,
+                                              height: 1.4,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF2C5066))),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                    orElse: () => const SizedBox.shrink(),
+                  ),
               const SizedBox(height: 12),
               if (state.isLoading)
                 const Center(

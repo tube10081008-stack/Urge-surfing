@@ -3,10 +3,27 @@ from rest_framework import serializers
 
 from .models import (
     ExposureMedia,
+    LifeCompass,
     TrainingSession,
     UrgeSurfingSession,
     VasRecord,
 )
+
+
+class LifeCompassSerializer(serializers.ModelSerializer):
+    """GET/PUT /compass 요청/응답."""
+
+    class Meta:
+        model = LifeCompass
+        fields = [
+            "life_goal",
+            "study_domain",
+            "goal_1y",
+            "goal_5y",
+            "goal_10y",
+            "updated_at",
+        ]
+        read_only_fields = ["updated_at"]
 
 
 class ExposureMediaSerializer(serializers.ModelSerializer):

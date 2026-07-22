@@ -16,11 +16,13 @@ from rest_framework.views import APIView
 
 from .models import (
     ExposureMedia,
+    LifeCompass,
     TrainingSession,
     VasRecord,
 )
 from .serializers import (
     ExposureMediaSerializer,
+    LifeCompassSerializer,
     TrainingSessionCompleteSerializer,
     TrainingSessionCreateSerializer,
     UrgeSurfingSerializer,
@@ -152,3 +154,22 @@ class VasTrendView(APIView):
             )
 
         return Response(result, status=status.HTTP_200_OK)
+
+
+class CompassView(APIView):
+    """GET/PUT /compass — 삶의 나침반(싱글턴)을 조회/저장한다."""
+
+    def _obj(self):
+        obj, _ = LifeCompass.objects.get_or_create(pk=1)
+        return obj
+
+    def get(self, request):
+        return Response(LifeCompassSerializer(self._obj()).data)
+
+    def put(self, request):
+        serializer = LifeCompassSerializer(
+            self._obj(), data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

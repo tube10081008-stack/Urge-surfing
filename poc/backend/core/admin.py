@@ -3,10 +3,16 @@ from django.contrib import admin
 
 from .models import (
     ExposureMedia,
+    LifeCompass,
     TrainingSession,
     UrgeSurfingSession,
     VasRecord,
 )
+
+
+@admin.register(LifeCompass)
+class LifeCompassAdmin(admin.ModelAdmin):
+    list_display = ("id", "life_goal", "updated_at")
 
 
 @admin.register(ExposureMedia)

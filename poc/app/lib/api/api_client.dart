@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/exposure_media.dart';
+import '../models/life_compass.dart';
 import '../models/training_session.dart';
 import '../models/vas_record.dart';
 import '../models/vas_trend.dart';
@@ -125,6 +126,22 @@ class ApiClient {
     return data
         .map((e) => VasTrendPoint.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// GET /compass → 삶의 나침반 조회
+  Future<LifeCompass> fetchCompass() async {
+    final res = await _http.get(_uri('/compass'), headers: _jsonHeaders);
+    return LifeCompass.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
+  /// PUT /compass → 삶의 나침반 저장
+  Future<LifeCompass> saveCompass(LifeCompass compass) async {
+    final res = await _http.put(
+      _uri('/compass'),
+      headers: _jsonHeaders,
+      body: jsonEncode(compass.toJson()),
+    );
+    return LifeCompass.fromJson(_decode(res) as Map<String, dynamic>);
   }
 
   void dispose() => _http.close();

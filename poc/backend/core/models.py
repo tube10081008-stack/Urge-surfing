@@ -134,3 +134,25 @@ class UrgeSurfingSession(models.Model):
 
     def __str__(self):
         return f"파도타기 세션 #{self.session_id} ({self.outcome})"
+
+
+class LifeCompass(models.Model):
+    """삶의 나침반 — 의미 있는 목표와 기간별 계획(단일 데모 사용자, 싱글턴).
+
+    도박 충동의 기저(무료함·외로움·연결 열망)를 '방향과 몰입'으로 대체하기
+    위한 상담 과제를 담는다. 충동/결과 화면에서 '왜 견디는가'로 상기시킨다.
+    """
+
+    life_goal = models.TextField("의미 있는 삶의 목표", blank=True, default="")
+    study_domain = models.TextField("1만 시간 학습 영역", blank=True, default="")
+    goal_1y = models.TextField("1년 목표", blank=True, default="")
+    goal_5y = models.TextField("5년 목표", blank=True, default="")
+    goal_10y = models.TextField("10년 목표", blank=True, default="")
+    updated_at = models.DateTimeField("수정 시각", auto_now=True)
+
+    class Meta:
+        verbose_name = "삶의 나침반"
+        verbose_name_plural = "삶의 나침반"
+
+    def __str__(self):
+        return f"삶의 나침반 #{self.pk}"

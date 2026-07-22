@@ -13,6 +13,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    CompassView,
     ExposureMediaViewSet,
     TrainingSessionViewSet,
     UrgeSurfingViewSet,
@@ -28,5 +29,6 @@ router.register("urge-surfing", UrgeSurfingViewSet, basename="urge-surfing")
 
 urlpatterns = [
     path("dashboard/vas-trend", VasTrendView.as_view(), name="vas-trend"),
+    path("compass", CompassView.as_view(), name="compass"),
     path("", include(router.urls)),
 ]
