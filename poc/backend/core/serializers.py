@@ -4,10 +4,39 @@ from rest_framework import serializers
 from .models import (
     ExposureMedia,
     LifeCompass,
+    StateCheckin,
     TrainingSession,
     UrgeSurfingSession,
     VasRecord,
 )
+
+
+class StateCheckinSerializer(serializers.ModelSerializer):
+    """POST/PATCH/GET /state-checkins 요청/응답."""
+
+    class Meta:
+        model = StateCheckin
+        fields = [
+            "id",
+            "arousal",
+            "body_part",
+            "sensation",
+            "trigger",
+            "action",
+            "arousal_after",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+    def validate_arousal(self, value):
+        if not (1 <= value <= 5):
+            raise serializers.ValidationError("arousal은 1~5 사이여야 합니다.")
+        return value
+
+    def validate_arousal_after(self, value):
+        if value is not None and not (1 <= value <= 5):
+            raise serializers.ValidationError("arousal_after는 1~5 사이여야 합니다.")
+        return value
 
 
 class LifeCompassSerializer(serializers.ModelSerializer):

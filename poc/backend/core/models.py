@@ -156,3 +156,42 @@ class LifeCompass(models.Model):
 
     def __str__(self):
         return f"삶의 나침반 #{self.pk}"
+
+
+class StateCheckin(models.Model):
+    """신경계 상태 체크인 — 수용의 창(WoT) 위 내 위치 기록.
+
+    상담 과제: 충동은 신호 → '몸 어디서, 어떤 감각으로, 왜'를 알아차리고
+    행동(산책·운동·공부 등)으로 상태값을 옮긴 뒤 다시 체크해 전후를 비교한다.
+    """
+
+    class Arousal(models.IntegerChoices):
+        SHUTDOWN = 1, "무기력/멍함"
+        LOW = 2, "가라앉음/무료함"
+        WINDOW = 3, "안정(창 안)"
+        HIGH = 4, "긴장/들뜸"
+        OVER = 5, "과각성/충동"
+
+    arousal = models.PositiveSmallIntegerField(
+        "각성도(1~5)", choices=Arousal.choices
+    )
+    body_part = models.CharField("몸 부위", max_length=50, blank=True, default="")
+    sensation = models.CharField("감각", max_length=50, blank=True, default="")
+    trigger = models.CharField(
+        "신호의 이유/맥락", max_length=300, blank=True, default=""
+    )
+    action = models.CharField("상태 이동 행동", max_length=100, blank=True, default="")
+    # 행동 후 재체크 값(없으면 아직 미완료)
+    arousal_after = models.PositiveSmallIntegerField(
+        "행동 후 각성도", choices=Arousal.choices, null=True, blank=True
+    )
+    created_at = models.DateTimeField("기록 시각", auto_now_add=True)
+    updated_at = models.DateTimeField("수정 시각", auto_now=True)
+
+    class Meta:
+        verbose_name = "상태 체크인"
+        verbose_name_plural = "상태 체크인"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"체크인 #{self.pk} ({self.get_arousal_display()})"

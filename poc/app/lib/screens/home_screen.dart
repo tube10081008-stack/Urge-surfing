@@ -5,6 +5,7 @@ import '../state/session_controller.dart';
 import '../widgets/sos_button.dart';
 import 'compass_screen.dart';
 import 'dashboard_screen.dart';
+import 'state_checkin_screen.dart';
 import 'vas_input_screen.dart';
 
 /// 홈 화면.
@@ -47,6 +48,13 @@ class HomeScreen extends ConsumerWidget {
         foregroundColor: const Color(0xFF2C5066),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.monitor_heart_outlined),
+            tooltip: '지금 나 · 상태 체크',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const StateCheckinScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.explore_outlined),
             tooltip: '삶의 나침반',
@@ -142,6 +150,27 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
 
+              SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF3FA796),
+                    side: const BorderSide(color: Color(0xFF3FA796)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const StateCheckinScreen()),
+                  ),
+                  icon: const Icon(Icons.monitor_heart_outlined, size: 20),
+                  label: const Text('충동이 왔어요 · 상태 체크',
+                      style: TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(height: 10),
               SizedBox(
                 height: 56,
                 child: FilledButton(

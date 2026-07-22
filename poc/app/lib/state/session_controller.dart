@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
 import '../models/exposure_media.dart';
 import '../models/life_compass.dart';
+import '../models/state_checkin.dart';
 import '../models/training_session.dart';
 import '../models/vas_trend.dart';
 
@@ -254,4 +255,11 @@ final vasTrendProvider =
 final compassProvider = FutureProvider<LifeCompass>((ref) async {
   final api = ref.watch(apiClientProvider);
   return api.fetchCompass();
+});
+
+/// 신경계 상태 체크인 목록 provider (GET /state-checkins).
+final checkinsProvider =
+    FutureProvider.autoDispose<List<StateCheckin>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  return api.fetchStateCheckins();
 });

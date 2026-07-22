@@ -17,12 +17,14 @@ from rest_framework.views import APIView
 from .models import (
     ExposureMedia,
     LifeCompass,
+    StateCheckin,
     TrainingSession,
     VasRecord,
 )
 from .serializers import (
     ExposureMediaSerializer,
     LifeCompassSerializer,
+    StateCheckinSerializer,
     TrainingSessionCompleteSerializer,
     TrainingSessionCreateSerializer,
     UrgeSurfingSerializer,
@@ -107,6 +109,30 @@ class UrgeSurfingViewSet(
 
     queryset = TrainingSession.objects.none()  # 라우터용 더미
     serializer_class = UrgeSurfingSerializer
+
+
+class StateCheckinViewSet(
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
+    """신경계 상태 체크인.
+
+    - POST  /state-checkins            : 체크인 생성(각성도·몸 감각·행동)
+    - PATCH /state-checkins/{id}       : 행동 후 재체크(arousal_after)
+    - GET   /state-checkins            : 최근 30건
+    """
+
+    queryset = StateCheckin.objects.all()[:30]
+    serializer_class = StateCheckinSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        # 수정(PATCH)은 전체에서 조회, 목록은 최근 30건만
+        if self.action in ("update", "partial_update"):
+            return StateCheckin.objects.all()
+        return StateCheckin.objects.all()[:30]
 
 
 class VasTrendView(APIView):

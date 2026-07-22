@@ -4,6 +4,7 @@ from django.contrib import admin
 from .models import (
     ExposureMedia,
     LifeCompass,
+    StateCheckin,
     TrainingSession,
     UrgeSurfingSession,
     VasRecord,
@@ -13,6 +14,15 @@ from .models import (
 @admin.register(LifeCompass)
 class LifeCompassAdmin(admin.ModelAdmin):
     list_display = ("id", "life_goal", "updated_at")
+
+
+@admin.register(StateCheckin)
+class StateCheckinAdmin(admin.ModelAdmin):
+    list_display = (
+        "id", "arousal", "body_part", "sensation", "action",
+        "arousal_after", "created_at",
+    )
+    list_filter = ("arousal", "arousal_after")
 
 
 @admin.register(ExposureMedia)

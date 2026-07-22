@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/exposure_media.dart';
 import '../models/life_compass.dart';
+import '../models/state_checkin.dart';
 import '../models/training_session.dart';
 import '../models/vas_record.dart';
 import '../models/vas_trend.dart';
@@ -142,6 +143,48 @@ class ApiClient {
       body: jsonEncode(compass.toJson()),
     );
     return LifeCompass.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
+  /// GET /state-checkins → 최근 상태 체크인 목록
+  Future<List<StateCheckin>> fetchStateCheckins() async {
+    final res =
+        await _http.get(_uri('/state-checkins'), headers: _jsonHeaders);
+    final data = _decode(res) as List<dynamic>;
+    return data
+        .map((e) => StateCheckin.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// POST /state-checkins → 체크인 생성
+  Future<StateCheckin> createStateCheckin({
+    required int arousal,
+    String bodyPart = '',
+    String sensation = '',
+    String trigger = '',
+    String action = '',
+  }) async {
+    final res = await _http.post(
+      _uri('/state-checkins'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'arousal': arousal,
+        'body_part': bodyPart,
+        'sensation': sensation,
+        'trigger': trigger,
+        'action': action,
+      }),
+    );
+    return StateCheckin.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
+  /// PATCH /state-checkins/{id} → 행동 후 재체크
+  Future<StateCheckin> recheckState(int id, int arousalAfter) async {
+    final res = await _http.patch(
+      _uri('/state-checkins/$id'),
+      headers: _jsonHeaders,
+      body: jsonEncode({'arousal_after': arousalAfter}),
+    );
+    return StateCheckin.fromJson(_decode(res) as Map<String, dynamic>);
   }
 
   void dispose() => _http.close();
