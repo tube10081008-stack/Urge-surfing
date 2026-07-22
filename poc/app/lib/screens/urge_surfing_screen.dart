@@ -65,23 +65,37 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
     ref.read(sessionControllerProvider.notifier).setCopingSkill(skill.key);
   }
 
-  /// 백엔드에 상담 음성 가이드가 등록돼 있으면 대처법 목록에 추가.
-  List<CopingSkill> _skillsWith(ExposureMedia? guide) {
-    if (guide == null) return kCopingSkills;
+  /// 가이드 회기 라벨(예: "상담사 음성 가이드 · 2회기" → "가이드 2회기").
+  String _guideLabel(ExposureMedia g) {
+    final match = RegExp(r'(\d+)\s*회기').firstMatch(g.title);
+    return match != null ? '가이드 ${match.group(1)}회기' : '상담 음성';
+  }
+
+  /// 기본 대처법 + 등록된 상담 음성 가이드(회기별) 칩.
+  List<CopingSkill> _skillsWith(List<ExposureMedia> guides) {
     return [
       ...kCopingSkills,
-      const CopingSkill(
-        key: 'audio_guide',
-        label: '상담 음성 가이드',
-        tagline: '"당신은 당신의 생각이 아니에요" — 상담사 음성과 함께 파도를 지나요',
-        icon: Icons.headphones,
-        kind: CopingKind.audioGuide,
-      ),
+      for (final g in guides)
+        CopingSkill(
+          key: 'guide_${g.id}',
+          label: _guideLabel(g),
+          tagline: '상담사 음성과 함께 파도를 지나요',
+          icon: Icons.headphones,
+          kind: CopingKind.audioGuide,
+        ),
     ];
   }
 
+  /// key('guide_<id>')에 해당하는 가이드 미디어를 찾는다.
+  ExposureMedia? _guideForSkill(List<ExposureMedia> guides) {
+    for (final g in guides) {
+      if ('guide_${g.id}' == _skill.key) return g;
+    }
+    return null;
+  }
+
   /// 선택된 기술에 맞는 가이드 위젯.
-  Widget _buildGuide(ExposureMedia? guide) {
+  Widget _buildGuide(List<ExposureMedia> guides) {
     switch (_skill.kind) {
       case CopingKind.breathing:
         return BreathingGuide(
@@ -98,10 +112,11 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
           stepSec: _skill.stepSec,
         );
       case CopingKind.audioGuide:
+        final g = _guideForSkill(guides);
         return _AudioGuidePlayer(
           key: ValueKey(_skill.key),
-          url: guide?.mediaUrl ?? '',
-          title: guide?.title ?? '상담 음성 가이드',
+          url: g?.mediaUrl ?? '',
+          title: g?.title ?? '상담 음성 가이드',
         );
     }
   }
@@ -142,8 +157,8 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
   @override
   Widget build(BuildContext context) {
     final remaining = totalSec - _elapsed;
-    final guide = ref.watch(guideAudioProvider).valueOrNull;
-    final skills = _skillsWith(guide);
+    final guides = ref.watch(guidesProvider).valueOrNull ?? const [];
+    final skills = _skillsWith(guides);
 
     return Scaffold(
       backgroundColor: const Color(0xFFEAF3F8),
@@ -254,7 +269,7 @@ class _UrgeSurfingScreenState extends ConsumerState<UrgeSurfingScreen> {
                 const Spacer(),
 
                 // 중앙 대처 기술 가이드(선택에 따라 전환)
-                _buildGuide(guide),
+                _buildGuide(guides),
                 const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 28),

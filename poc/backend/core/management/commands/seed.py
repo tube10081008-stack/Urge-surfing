@@ -22,7 +22,7 @@ _CDN = (
 # 노출 자극 목록에서 제외되고, 대처법 "상담 음성 가이드"로 표시된다.
 _CDN_GUIDE = (
     "https://cdn.jsdelivr.net/gh/tube10081008-stack/Urge-surfing@"
-    "b9affcbd5a8cdd0be459b381ef7448d23577dd3a/poc/media/guide"
+    "c6c301ac3ef462916515261b1e35a1c59c2db100/poc/media/guide"
 )
 
 # seed 가 기존 행의 media_url 을 덮어써도 되는 "데모 호스트"(관리자 실제 URL은 보존).
@@ -75,6 +75,15 @@ SEED_MEDIA = [
         "intensity": 1,
         "asset_ref": "counselor_guide_01.mp3",
         "media_url": f"{_CDN_GUIDE}/counselor_guide_01.mp3",
+    },
+    {
+        # 2회기: 무료함·외로움, 관계 단절/연결 열망, 삶의 목표
+        "title": "상담사 음성 가이드 · 2회기",
+        "media_type": ExposureMedia.MediaType.AUDIO,
+        "category": "음성가이드",
+        "intensity": 1,
+        "asset_ref": "counselor_guide_02.mp3",
+        "media_url": f"{_CDN_GUIDE}/counselor_guide_02.mp3",
     },
 ]
 
