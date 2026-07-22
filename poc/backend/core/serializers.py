@@ -2,6 +2,7 @@
 from rest_framework import serializers
 
 from .models import (
+    CopingAction,
     ExposureMedia,
     LifeCompass,
     StateCheckin,
@@ -9,6 +10,23 @@ from .models import (
     UrgeSurfingSession,
     VasRecord,
 )
+
+
+class CopingActionSerializer(serializers.ModelSerializer):
+    """GET/POST /coping-actions 요청/응답."""
+
+    class Meta:
+        model = CopingAction
+        fields = [
+            "id",
+            "title",
+            "category",
+            "direction",
+            "note",
+            "effort",
+            "is_custom",
+        ]
+        read_only_fields = ["id", "is_custom"]
 
 
 class StateCheckinSerializer(serializers.ModelSerializer):

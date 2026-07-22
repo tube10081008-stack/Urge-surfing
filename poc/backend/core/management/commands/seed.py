@@ -9,7 +9,8 @@ media_url 은 저작권 프리 자체 생성 클립(poc/media/exposure/)을 jsDe
 """
 from django.core.management.base import BaseCommand
 
-from core.models import ExposureMedia
+from core.coping_catalog import COPING_CATALOG
+from core.models import CopingAction, ExposureMedia
 
 
 # 자체 생성 클립을 커밋 SHA 고정 jsDelivr URL로 서빙(브랜치명에 슬래시가 있어 SHA 사용).
@@ -120,5 +121,34 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"시드 완료. 신규 {created} / 갱신 {updated} / 전체 "
                 f"{ExposureMedia.objects.count()}건"
+            )
+        )
+
+        # 대처 행동 카탈로그(가이드 표) 적재 — 제목 기준 멱등, 사용자 추가분은 보존.
+        act_created = act_updated = 0
+        for title, category, direction, effort, note in COPING_CATALOG:
+            obj, was_created = CopingAction.objects.get_or_create(
+                title=title,
+                defaults={
+                    "category": category,
+                    "direction": direction,
+                    "effort": effort,
+                    "note": note,
+                },
+            )
+            if was_created:
+                act_created += 1
+            elif not obj.is_custom:
+                obj.category = category
+                obj.direction = direction
+                obj.effort = effort
+                obj.note = note
+                obj.save(update_fields=["category", "direction", "effort", "note"])
+                act_updated += 1
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"행동 카탈로그. 신규 {act_created} / 갱신 {act_updated} / 전체 "
+                f"{CopingAction.objects.count()}건"
             )
         )

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/state_checkin.dart';
 import '../state/session_controller.dart';
+import 'action_guide_screen.dart';
 
 /// 신경계 상태 체크 화면 — 수용의 창(WoT) 위 내 위치를 기록한다.
 ///
@@ -37,6 +38,27 @@ class _StateCheckinScreenState extends ConsumerState<StateCheckinScreen> {
   String _action = '';
   final _trigger = TextEditingController();
   bool _saving = false;
+
+  /// 각성도 → 가이드 필터 방향(저각성은 끌어올리기, 과각성은 가라앉히기).
+  String? get _directionForArousal {
+    final a = _arousal;
+    if (a == null) return null;
+    if (a <= 2) return 'up';
+    if (a >= 4) return 'down';
+    return 'ground';
+  }
+
+  Future<void> _openGuide() async {
+    final picked = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) =>
+            ActionGuideScreen(initialDirection: _directionForArousal),
+      ),
+    );
+    if (picked != null && picked.isNotEmpty) {
+      setState(() => _action = picked);
+    }
+  }
 
   @override
   void dispose() {
@@ -178,6 +200,42 @@ class _StateCheckinScreenState extends ConsumerState<StateCheckinScreen> {
             _sectionTitle('5. 상태를 옮겨줄 행동 하나를 고르면?'),
             const SizedBox(height: 10),
             _chips(kActions, _action, (v) => setState(() => _action = v)),
+            const SizedBox(height: 12),
+            // 51가지 행동 가이드 — 지금 상태에 맞춰 추천
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF4F8FB0),
+                side: const BorderSide(color: Color(0xFFCBDDE7)),
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: _openGuide,
+              icon: const Icon(Icons.menu_book_outlined, size: 20),
+              label: Text(
+                _arousal == null
+                    ? '행동 가이드에서 찾기 (51가지)'
+                    : '지금 상태에 맞는 행동 찾기 →',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            if (_action.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle,
+                        size: 18, color: Color(0xFF3FA796)),
+                    const SizedBox(width: 6),
+                    Text('선택: $_action',
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2C5066))),
+                  ],
+                ),
+              ),
             const SizedBox(height: 28),
 
             SizedBox(

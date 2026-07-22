@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import (
+    CopingAction,
     ExposureMedia,
     LifeCompass,
     StateCheckin,
@@ -22,6 +23,7 @@ from .models import (
     VasRecord,
 )
 from .serializers import (
+    CopingActionSerializer,
     ExposureMediaSerializer,
     LifeCompassSerializer,
     StateCheckinSerializer,
@@ -133,6 +135,31 @@ class StateCheckinViewSet(
         if self.action in ("update", "partial_update"):
             return StateCheckin.objects.all()
         return StateCheckin.objects.all()[:30]
+
+
+class CopingActionViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """상태 이동 행동 카탈로그.
+
+    - GET  /coping-actions[?direction=up|down|ground] : 목록(방향 필터)
+    - POST /coping-actions : 사용자 행동 추가(is_custom=True)
+    """
+
+    serializer_class = CopingActionSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = CopingAction.objects.all()
+        direction = self.request.query_params.get("direction")
+        if direction in ("up", "down", "ground"):
+            qs = qs.filter(direction=direction)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(is_custom=True)
 
 
 class VasTrendView(APIView):

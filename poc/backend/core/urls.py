@@ -14,6 +14,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     CompassView,
+    CopingActionViewSet,
     ExposureMediaViewSet,
     StateCheckinViewSet,
     TrainingSessionViewSet,
@@ -28,6 +29,7 @@ router.register("exposure-media", ExposureMediaViewSet, basename="exposure-media
 router.register("training-sessions", TrainingSessionViewSet, basename="training-sessions")
 router.register("urge-surfing", UrgeSurfingViewSet, basename="urge-surfing")
 router.register("state-checkins", StateCheckinViewSet, basename="state-checkins")
+router.register("coping-actions", CopingActionViewSet, basename="coping-actions")
 
 urlpatterns = [
     path("dashboard/vas-trend", VasTrendView.as_view(), name="vas-trend"),

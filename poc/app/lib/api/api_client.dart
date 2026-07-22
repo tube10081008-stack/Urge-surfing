@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../models/coping_action.dart';
 import '../models/exposure_media.dart';
 import '../models/life_compass.dart';
 import '../models/state_checkin.dart';
@@ -185,6 +186,40 @@ class ApiClient {
       body: jsonEncode({'arousal_after': arousalAfter}),
     );
     return StateCheckin.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
+  /// GET /coping-actions[?direction=] → 대처 행동 가이드 목록
+  Future<List<CopingAction>> fetchCopingActions({String? direction}) async {
+    final path = direction == null
+        ? '/coping-actions'
+        : '/coping-actions?direction=$direction';
+    final res = await _http.get(_uri(path), headers: _jsonHeaders);
+    final data = _decode(res) as List<dynamic>;
+    return data
+        .map((e) => CopingAction.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// POST /coping-actions → 내 행동 추가
+  Future<CopingAction> addCopingAction({
+    required String title,
+    required String direction,
+    String category = '내 행동',
+    String note = '',
+    int effort = 1,
+  }) async {
+    final res = await _http.post(
+      _uri('/coping-actions'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'title': title,
+        'category': category,
+        'direction': direction,
+        'note': note,
+        'effort': effort,
+      }),
+    );
+    return CopingAction.fromJson(_decode(res) as Map<String, dynamic>);
   }
 
   void dispose() => _http.close();

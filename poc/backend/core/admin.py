@@ -2,6 +2,7 @@
 from django.contrib import admin
 
 from .models import (
+    CopingAction,
     ExposureMedia,
     LifeCompass,
     StateCheckin,
@@ -9,6 +10,13 @@ from .models import (
     UrgeSurfingSession,
     VasRecord,
 )
+
+
+@admin.register(CopingAction)
+class CopingActionAdmin(admin.ModelAdmin):
+    list_display = ("id", "title", "category", "direction", "effort", "is_custom")
+    list_filter = ("direction", "category", "is_custom")
+    search_fields = ("title", "note")
 
 
 @admin.register(LifeCompass)

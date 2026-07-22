@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
+import '../models/coping_action.dart';
 import '../models/exposure_media.dart';
 import '../models/life_compass.dart';
 import '../models/state_checkin.dart';
@@ -262,4 +263,11 @@ final checkinsProvider =
     FutureProvider.autoDispose<List<StateCheckin>>((ref) async {
   final api = ref.watch(apiClientProvider);
   return api.fetchStateCheckins();
+});
+
+/// 대처 행동 가이드 전체 목록 provider (GET /coping-actions).
+final copingActionsProvider =
+    FutureProvider<List<CopingAction>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  return api.fetchCopingActions();
 });

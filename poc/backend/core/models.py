@@ -195,3 +195,35 @@ class StateCheckin(models.Model):
 
     def __str__(self):
         return f"체크인 #{self.pk} ({self.get_arousal_display()})"
+
+
+class CopingAction(models.Model):
+    """상태를 옮기는 행동 카탈로그(가이드 표).
+
+    각 행동을 '방향'으로 태그해 지금 상태(수용의 창 위 위치)에 맞는 행동을
+    추천한다. 사용자가 자신의 행동을 추가(is_custom=True)할 수도 있다.
+    """
+
+    class Direction(models.TextChoices):
+        UP = "up", "끌어올리기(무기력→활력)"
+        DOWN = "down", "가라앉히기(과각성→안정)"
+        GROUND = "ground", "중심잡기(창 안 안정)"
+
+    title = models.CharField("행동", max_length=100, unique=True)
+    category = models.CharField("분류", max_length=50)
+    direction = models.CharField(
+        "방향", max_length=10, choices=Direction.choices
+    )
+    note = models.CharField("효과/경험", max_length=300, blank=True, default="")
+    # 접근성: 1=즉시 가능, 2=보통, 3=시간·준비 필요
+    effort = models.PositiveSmallIntegerField("실행 난이도(1~3)", default=1)
+    is_custom = models.BooleanField("사용자 추가", default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "대처 행동"
+        verbose_name_plural = "대처 행동"
+        ordering = ["category", "id"]
+
+    def __str__(self):
+        return f"{self.title} ({self.direction})"
