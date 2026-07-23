@@ -1,5 +1,25 @@
 import 'package:flutter/material.dart';
 
+/// SOS FAB 위치: 화면 오른쪽, 세로로 중간~하단 사이(약 68%).
+/// 상단 AppBar 아이콘들과 하단 CTA 버튼을 모두 가리지 않는 자리.
+class SosFabLocation extends FloatingActionButtonLocation {
+  const SosFabLocation();
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry g) {
+    final double x = g.scaffoldSize.width -
+        g.floatingActionButtonSize.width -
+        16 -
+        g.minInsets.right;
+    final double y = g.scaffoldSize.height * 0.68 -
+        g.floatingActionButtonSize.height / 2;
+    return Offset(x, y);
+  }
+}
+
+/// 공유 인스턴스.
+const FloatingActionButtonLocation kSosFabLocation = SosFabLocation();
+
 /// 항상 노출되는 SOS 버튼.
 ///
 /// 위기 상황에서 즉시 도움을 받을 수 있도록 화면 어디에서나 접근 가능해야 한다.

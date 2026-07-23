@@ -27,13 +27,14 @@ class LearningConceptSerializer(serializers.ModelSerializer):
             "title_en",
             "originator",
             "summary",
+            "detail",
             "connection",
             "note",
         ]
         # 큐레이션 내용은 읽기 전용, 사용자 메모(note)만 수정 가능
         read_only_fields = [
             "id", "key", "group_no", "group_title", "title",
-            "title_en", "originator", "summary", "connection",
+            "title_en", "originator", "summary", "detail", "connection",
         ]
 
 

@@ -80,7 +80,7 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: const SosButton(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+      floatingActionButtonLocation: kSosFabLocation,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

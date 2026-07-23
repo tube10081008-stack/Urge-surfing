@@ -157,7 +157,7 @@ class Command(BaseCommand):
         # 회복 학습 노트 카탈로그 — key 기준 멱등, 사용자 메모(note)는 절대 덮지 않음.
         lc_created = lc_updated = 0
         for (key, group_no, group_title, title, title_en,
-             originator, summary, connection) in LEARNING_CATALOG:
+             originator, summary, connection, detail) in LEARNING_CATALOG:
             fields = {
                 "group_no": group_no,
                 "group_title": group_title,
@@ -165,6 +165,7 @@ class Command(BaseCommand):
                 "title_en": title_en,
                 "originator": originator,
                 "summary": summary,
+                "detail": detail,
                 "connection": connection,
             }
             obj, was_created = LearningConcept.objects.get_or_create(

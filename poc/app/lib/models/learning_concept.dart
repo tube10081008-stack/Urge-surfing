@@ -9,6 +9,9 @@ class LearningConcept {
   final String titleEn;
   final String originator;
   final String summary;
+
+  /// 자세히(해설) — 읽고 스스로 요약할 분량의 본문
+  final String detail;
   final String connection;
 
   /// 사용자 메모(공부 필기)
@@ -23,6 +26,7 @@ class LearningConcept {
     this.titleEn = '',
     this.originator = '',
     this.summary = '',
+    this.detail = '',
     this.connection = '',
     this.note = '',
   });
@@ -39,6 +43,7 @@ class LearningConcept {
       titleEn: json['title_en'] as String? ?? '',
       originator: json['originator'] as String? ?? '',
       summary: json['summary'] as String? ?? '',
+      detail: json['detail'] as String? ?? '',
       connection: json['connection'] as String? ?? '',
       note: json['note'] as String? ?? '',
     );

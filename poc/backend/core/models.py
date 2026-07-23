@@ -243,6 +243,7 @@ class LearningConcept(models.Model):
     title_en = models.CharField("영문명", max_length=120, blank=True, default="")
     originator = models.CharField("제안 학자", max_length=120, blank=True, default="")
     summary = models.TextField("요약", blank=True, default="")
+    detail = models.TextField("자세히(해설)", blank=True, default="")
     connection = models.TextField("내 회복과의 연결", blank=True, default="")
     # 사용자 메모(공부 필기) — 재시드 시 보존
     note = models.TextField("내 메모", blank=True, default="")

@@ -263,6 +263,10 @@ class _ConceptDetailScreenState extends ConsumerState<ConceptDetailScreen> {
               ),
             const SizedBox(height: 20),
             _block('요약', c.summary, const Color(0xFFF2F7FA)),
+            if (c.detail.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _block('자세히', c.detail, const Color(0xFFF7FAFC)),
+            ],
             if (c.connection.isNotEmpty) ...[
               const SizedBox(height: 12),
               _block('내 회복과의 연결', c.connection, const Color(0xFFF0F7F5)),
