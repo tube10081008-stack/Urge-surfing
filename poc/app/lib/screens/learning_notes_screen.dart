@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/learning_concept.dart';
 import '../state/session_controller.dart';
+import 'pendulum_practice_screen.dart';
 
 /// 회복 학습 노트 — 5개 그룹의 학술 개념 카드를 보며 메모하며 공부한다.
 class LearningNotesScreen extends ConsumerWidget {
@@ -263,13 +264,52 @@ class _ConceptDetailScreenState extends ConsumerState<ConceptDetailScreen> {
               ),
             const SizedBox(height: 20),
             _block('요약', c.summary, const Color(0xFFF2F7FA)),
-            if (c.detail.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _block('자세히', c.detail, const Color(0xFFF7FAFC)),
-            ],
             if (c.connection.isNotEmpty) ...[
               const SizedBox(height: 12),
               _block('내 회복과의 연결', c.connection, const Color(0xFFF0F7F5)),
+            ],
+            if (c.detail.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              // '자세히'는 플로팅(모달)으로 펼쳐 읽는다.
+              SizedBox(
+                height: 52,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF4F8FB0),
+                    side: const BorderSide(color: Color(0xFF4F8FB0)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () => _showDetailSheet(context, c),
+                  icon: const Icon(Icons.menu_book_outlined, size: 20),
+                  label: const Text('자세히 읽기',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+            if (c.key == 'pendulation') ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 52,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF3FA796),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const PendulumPracticeScreen()),
+                  ),
+                  icon: const Icon(Icons.waves, size: 20),
+                  label: const Text('진자 연습 해보기',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600)),
+                ),
+              ),
             ],
             const SizedBox(height: 24),
             const Text('내 메모',
@@ -331,6 +371,101 @@ class _ConceptDetailScreenState extends ConsumerState<ConceptDetailScreen> {
             ),
             const SizedBox(height: 24),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// '자세히'를 플로팅 시트로 펼쳐 읽기.
+  void _showDetailSheet(BuildContext context, LearningConcept c) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scroll) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // 손잡이
+              Container(
+                width: 44,
+                height: 5,
+                margin: const EdgeInsets.only(top: 12, bottom: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD5E0E7),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.menu_book_outlined,
+                        color: Color(0xFF4F8FB0)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(c.title,
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2C5066))),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Color(0xFF9AB4C2)),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView(
+                  controller: scroll,
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                  children: [
+                    for (final para in c.detail.split('\n\n'))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Text(
+                          para,
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            height: 1.75,
+                            color: para.startsWith('▸')
+                                ? const Color(0xFF2C5066)
+                                : const Color(0xFF3A4A56),
+                            fontWeight: para.startsWith('▸')
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    if (c.connection.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F7F5),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text('🧭 ${c.connection}',
+                            style: const TextStyle(
+                                fontSize: 14,
+                                height: 1.5,
+                                color: Color(0xFF2C5066))),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/state_checkin.dart';
 import '../state/session_controller.dart';
 import 'action_guide_screen.dart';
+import 'pendulum_practice_screen.dart';
 
 /// 신경계 상태 체크 화면 — 수용의 창(WoT) 위 내 위치를 기록한다.
 ///
@@ -156,6 +157,25 @@ class _StateCheckinScreenState extends ConsumerState<StateCheckinScreen> {
               '충동은 없애야 할 적이 아니라 신호예요.\n지금 내 신경계가 어디쯤인지 살펴봐요.',
               style:
                   TextStyle(fontSize: 14, height: 1.6, color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            // 지금 바로 진정이 필요할 때 — 진자 연습
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF3FA796),
+                side: const BorderSide(color: Color(0xFF9BD3C9)),
+                minimumSize: const Size.fromHeight(46),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const PendulumPracticeScreen()),
+              ),
+              icon: const Icon(Icons.waves, size: 20),
+              label: const Text('🌊 지금 진정이 필요하면 · 진자 연습',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             ),
             const SizedBox(height: 20),
 
