@@ -4,12 +4,20 @@ from django.contrib import admin
 from .models import (
     CopingAction,
     ExposureMedia,
+    LearningConcept,
     LifeCompass,
     StateCheckin,
     TrainingSession,
     UrgeSurfingSession,
     VasRecord,
 )
+
+
+@admin.register(LearningConcept)
+class LearningConceptAdmin(admin.ModelAdmin):
+    list_display = ("group_no", "title", "title_en", "originator")
+    list_filter = ("group_no",)
+    search_fields = ("title", "title_en", "summary", "note")
 
 
 @admin.register(CopingAction)

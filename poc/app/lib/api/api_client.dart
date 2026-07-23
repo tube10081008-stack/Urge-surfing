@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/coping_action.dart';
 import '../models/exposure_media.dart';
+import '../models/learning_concept.dart';
 import '../models/life_compass.dart';
 import '../models/state_checkin.dart';
 import '../models/training_session.dart';
@@ -220,6 +221,26 @@ class ApiClient {
       }),
     );
     return CopingAction.fromJson(_decode(res) as Map<String, dynamic>);
+  }
+
+  /// GET /learning-concepts → 회복 학습 노트 개념 목록
+  Future<List<LearningConcept>> fetchLearningConcepts() async {
+    final res =
+        await _http.get(_uri('/learning-concepts'), headers: _jsonHeaders);
+    final data = _decode(res) as List<dynamic>;
+    return data
+        .map((e) => LearningConcept.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// PATCH /learning-concepts/{id} → 내 메모 저장
+  Future<LearningConcept> saveLearningNote(int id, String note) async {
+    final res = await _http.patch(
+      _uri('/learning-concepts/$id'),
+      headers: _jsonHeaders,
+      body: jsonEncode({'note': note}),
+    );
+    return LearningConcept.fromJson(_decode(res) as Map<String, dynamic>);
   }
 
   void dispose() => _http.close();

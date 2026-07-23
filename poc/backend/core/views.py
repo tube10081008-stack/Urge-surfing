@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 from .models import (
     CopingAction,
     ExposureMedia,
+    LearningConcept,
     LifeCompass,
     StateCheckin,
     TrainingSession,
@@ -25,6 +26,7 @@ from .models import (
 from .serializers import (
     CopingActionSerializer,
     ExposureMediaSerializer,
+    LearningConceptSerializer,
     LifeCompassSerializer,
     StateCheckinSerializer,
     TrainingSessionCompleteSerializer,
@@ -160,6 +162,22 @@ class CopingActionViewSet(
 
     def perform_create(self, serializer):
         serializer.save(is_custom=True)
+
+
+class LearningConceptViewSet(
+    mixins.ListModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """회복 학습 노트.
+
+    - GET   /learning-concepts        : 개념 카드 목록(그룹별)
+    - PATCH /learning-concepts/{id}   : 내 메모(note) 저장
+    """
+
+    queryset = LearningConcept.objects.all()
+    serializer_class = LearningConceptSerializer
+    pagination_class = None
 
 
 class VasTrendView(APIView):

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
 import '../models/coping_action.dart';
 import '../models/exposure_media.dart';
+import '../models/learning_concept.dart';
 import '../models/life_compass.dart';
 import '../models/state_checkin.dart';
 import '../models/training_session.dart';
@@ -270,4 +271,11 @@ final copingActionsProvider =
     FutureProvider<List<CopingAction>>((ref) async {
   final api = ref.watch(apiClientProvider);
   return api.fetchCopingActions();
+});
+
+/// 회복 학습 노트 개념 목록 provider (GET /learning-concepts).
+final learningConceptsProvider =
+    FutureProvider<List<LearningConcept>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  return api.fetchLearningConcepts();
 });

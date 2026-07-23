@@ -16,6 +16,7 @@ from .views import (
     CompassView,
     CopingActionViewSet,
     ExposureMediaViewSet,
+    LearningConceptViewSet,
     StateCheckinViewSet,
     TrainingSessionViewSet,
     UrgeSurfingViewSet,
@@ -30,6 +31,9 @@ router.register("training-sessions", TrainingSessionViewSet, basename="training-
 router.register("urge-surfing", UrgeSurfingViewSet, basename="urge-surfing")
 router.register("state-checkins", StateCheckinViewSet, basename="state-checkins")
 router.register("coping-actions", CopingActionViewSet, basename="coping-actions")
+router.register(
+    "learning-concepts", LearningConceptViewSet, basename="learning-concepts"
+)
 
 urlpatterns = [
     path("dashboard/vas-trend", VasTrendView.as_view(), name="vas-trend"),

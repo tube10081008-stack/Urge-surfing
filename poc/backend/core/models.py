@@ -227,3 +227,31 @@ class CopingAction(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.direction})"
+
+
+class LearningConcept(models.Model):
+    """회복 학습 노트 — 학술 개념 카드 + 사용자 메모.
+
+    큐레이션된 개념(요약·원조 학자·회복과의 연결)은 시드로 관리하고,
+    note 필드에 사용자가 상담에서 배운 것을 적어 공부한다(재시드 시 note 보존).
+    """
+
+    key = models.CharField("식별키", max_length=50, unique=True)
+    group_no = models.PositiveSmallIntegerField("그룹 번호", default=1)
+    group_title = models.CharField("그룹명", max_length=50, blank=True, default="")
+    title = models.CharField("개념명", max_length=100)
+    title_en = models.CharField("영문명", max_length=120, blank=True, default="")
+    originator = models.CharField("제안 학자", max_length=120, blank=True, default="")
+    summary = models.TextField("요약", blank=True, default="")
+    connection = models.TextField("내 회복과의 연결", blank=True, default="")
+    # 사용자 메모(공부 필기) — 재시드 시 보존
+    note = models.TextField("내 메모", blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "학습 개념"
+        verbose_name_plural = "학습 개념"
+        ordering = ["group_no", "id"]
+
+    def __str__(self):
+        return f"[{self.group_no}] {self.title}"

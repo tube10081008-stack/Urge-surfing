@@ -10,7 +10,8 @@ media_url 은 저작권 프리 자체 생성 클립(poc/media/exposure/)을 jsDe
 from django.core.management.base import BaseCommand
 
 from core.coping_catalog import COPING_CATALOG
-from core.models import CopingAction, ExposureMedia
+from core.learning_catalog import LEARNING_CATALOG
+from core.models import CopingAction, ExposureMedia, LearningConcept
 
 
 # 자체 생성 클립을 커밋 SHA 고정 jsDelivr URL로 서빙(브랜치명에 슬래시가 있어 SHA 사용).
@@ -150,5 +151,37 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"행동 카탈로그. 신규 {act_created} / 갱신 {act_updated} / 전체 "
                 f"{CopingAction.objects.count()}건"
+            )
+        )
+
+        # 회복 학습 노트 카탈로그 — key 기준 멱등, 사용자 메모(note)는 절대 덮지 않음.
+        lc_created = lc_updated = 0
+        for (key, group_no, group_title, title, title_en,
+             originator, summary, connection) in LEARNING_CATALOG:
+            fields = {
+                "group_no": group_no,
+                "group_title": group_title,
+                "title": title,
+                "title_en": title_en,
+                "originator": originator,
+                "summary": summary,
+                "connection": connection,
+            }
+            obj, was_created = LearningConcept.objects.get_or_create(
+                key=key, defaults=fields
+            )
+            if was_created:
+                lc_created += 1
+            else:
+                # 큐레이션 내용만 갱신하고 note 는 보존.
+                for f, v in fields.items():
+                    setattr(obj, f, v)
+                obj.save(update_fields=list(fields.keys()))
+                lc_updated += 1
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"학습 노트 카탈로그. 신규 {lc_created} / 갱신 {lc_updated} / 전체 "
+                f"{LearningConcept.objects.count()}건"
             )
         )

@@ -5,6 +5,7 @@ import '../state/session_controller.dart';
 import '../widgets/sos_button.dart';
 import 'compass_screen.dart';
 import 'dashboard_screen.dart';
+import 'learning_notes_screen.dart';
 import 'state_checkin_screen.dart';
 import 'vas_input_screen.dart';
 
@@ -60,6 +61,13 @@ class HomeScreen extends ConsumerWidget {
             tooltip: '삶의 나침반',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const CompassScreen()),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.school_outlined),
+            tooltip: '회복 학습 노트',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const LearningNotesScreen()),
             ),
           ),
           IconButton(
