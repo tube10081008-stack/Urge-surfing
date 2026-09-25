@@ -406,25 +406,27 @@ function tierOf(r) {
 
 // ================= 영문판 ↔ 일본/한국판 대응 팩 =================
 // 영문판은 일본판 1~2개 팩을 합쳐 나오는 경우가 많아요. 대표 세트만 정리.
+// jpIds: TCGdex 일본판 세트 ID · jpOk: 일본판 레어도 데이터가 온전해서 카드 목록을 그대로 쓸 수 있음
+// (한국판은 일본판과 수록 카드·번호·레어도가 같아서 일본판 데이터를 쓴다. TCGdex에 한국어 카드 데이터는 없음)
 const JP_PRICE = { '拡張パック': 180, '強化拡張パック': 180, 'ハイクラスパック': 550 };
 const KR_PRICE = { '확장팩': 1000, '강화 확장팩': 1000, '하이클래스팩': 5000 };
 const REGION = {
-  'me01':     { jp: ['メガブレイブ', 'メガシンフォニア'], jpT: '拡張パック', kr: ['메가브레이브', '메가심포니아'], krT: '확장팩' },
-  'sv10':     { jp: ['ロケット団の栄光'], jpT: '拡張パック', kr: ['로켓단의 영광'], krT: '확장팩' },
-  'sv09':     { jp: ['バトルパートナーズ'], jpT: '拡張パック', kr: ['배틀파트너즈'], krT: '확장팩' },
-  'sv08.5':   { jp: ['テラスタルフェスex'], jpT: 'ハイクラスパック', kr: ['테라스탈 페스타 ex'], krT: '하이클래스팩' },
-  'sv08':     { jp: ['超電ブレイカー'], jpT: '拡張パック', kr: ['초전브레이커'], krT: '확장팩' },
-  'sv07':     { jp: ['ステラミラクル', '楽園ドラゴーナ'], jpT: '拡張パック', kr: ['스텔라미라클', '낙원드래고나'], krT: '확장팩' },
-  'sv06.5':   { jp: ['ナイトワンダラー'], jpT: '強化拡張パック', kr: ['나이트원더러'], krT: '강화 확장팩' },
-  'sv06':     { jp: ['変幻の仮面'], jpT: '拡張パック', kr: ['변환의 가면'], krT: '확장팩' },
-  'sv05':     { jp: ['ワイルドフォース', 'サイバージャッジ'], jpT: '拡張パック', kr: ['와일드포스', '사이버저지'], krT: '확장팩' },
-  'sv04.5':   { jp: ['シャイニートレジャーex'], jpT: 'ハイクラスパック', kr: ['샤이니 트레저 ex'], krT: '하이클래스팩' },
-  'sv04':     { jp: ['古代の咆哮', '未来の一閃'], jpT: '拡張パック', kr: ['고대의 포효', '미래의 일섬'], krT: '확장팩' },
-  'sv03.5':   { jp: ['ポケモンカード151'], jpT: '強化拡張パック', jpP: null, kr: ['포켓몬 카드 151'], krT: '강화 확장팩', krP: 2500 },
-  'sv03':     { jp: ['黒炎の支配者'], jpT: '拡張パック', kr: ['흑염의 지배자'], krT: '확장팩' },
-  'sv02':     { jp: ['スノーハザード', 'クレイバースト'], jpT: '拡張パック', kr: ['스노해저드', '클레이버스트'], krT: '확장팩' },
-  'sv01':     { jp: ['スカーレットex', 'バイオレットex'], jpT: '拡張パック', kr: ['스칼렛 ex', '바이올렛 ex'], krT: '확장팩' },
-  'swsh12.5': { jp: ['VSTARユニバース'], jpT: 'ハイクラスパック', kr: ['VSTAR 유니버스'], krT: '하이클래스팩' }
+  'me01':     { jp: ['メガブレイブ', 'メガシンフォニア'], jpT: '拡張パック', kr: ['메가브레이브', '메가심포니아'], krT: '확장팩', jpIds: ['M1L', 'M1S'], jpOk: true },
+  'sv10':     { jp: ['ロケット団の栄光'], jpT: '拡張パック', kr: ['로켓단의 영광'], krT: '확장팩', jpIds: ['SV10'], jpOk: true },
+  'sv09':     { jp: ['バトルパートナーズ'], jpT: '拡張パック', kr: ['배틀파트너즈'], krT: '확장팩', jpIds: ['SV9'], jpOk: false },
+  'sv08.5':   { jp: ['テラスタルフェスex'], jpT: 'ハイクラスパック', kr: ['테라스탈 페스타 ex'], krT: '하이클래스팩', jpIds: ['SV8a'], jpOk: false },
+  'sv08':     { jp: ['超電ブレイカー'], jpT: '拡張パック', kr: ['초전브레이커'], krT: '확장팩', jpIds: ['SV8'], jpOk: true },
+  'sv07':     { jp: ['ステラミラクル', '楽園ドラゴーナ'], jpT: '拡張パック', kr: ['스텔라미라클', '낙원드래고나'], krT: '확장팩', jpIds: ['SV7', 'SV7a'], jpOk: false },
+  'sv06.5':   { jp: ['ナイトワンダラー'], jpT: '強化拡張パック', kr: ['나이트원더러'], krT: '강화 확장팩', jpIds: ['SV6a'], jpOk: true },
+  'sv06':     { jp: ['変幻の仮面'], jpT: '拡張パック', kr: ['변환의 가면'], krT: '확장팩', jpIds: ['SV6'], jpOk: true },
+  'sv05':     { jp: ['ワイルドフォース', 'サイバージャッジ'], jpT: '拡張パック', kr: ['와일드포스', '사이버저지'], krT: '확장팩', jpIds: ['SV5K', 'SV5M'], jpOk: true },
+  'sv04.5':   { jp: ['シャイニートレジャーex'], jpT: 'ハイクラスパック', kr: ['샤이니 트레저 ex'], krT: '하이클래스팩', jpIds: ['SV4a'], jpOk: false },
+  'sv04':     { jp: ['古代の咆哮', '未来の一閃'], jpT: '拡張パック', kr: ['고대의 포효', '미래의 일섬'], krT: '확장팩', jpIds: ['SV4K', 'SV4M'], jpOk: true },
+  'sv03.5':   { jp: ['ポケモンカード151'], jpT: '強化拡張パック', jpP: null, kr: ['포켓몬 카드 151'], krT: '강화 확장팩', krP: 2500, jpIds: ['SV2a'], jpOk: true },
+  'sv03':     { jp: ['黒炎の支配者'], jpT: '拡張パック', kr: ['흑염의 지배자'], krT: '확장팩', jpIds: ['SV3'], jpOk: true },
+  'sv02':     { jp: ['スノーハザード', 'クレイバースト'], jpT: '拡張パック', kr: ['스노해저드', '클레이버스트'], krT: '확장팩', jpIds: ['SV2P', 'SV2D'], jpOk: true },
+  'sv01':     { jp: ['スカーレットex', 'バイオレットex'], jpT: '拡張パック', kr: ['스칼렛 ex', '바이올렛 ex'], krT: '확장팩', jpIds: ['SV1S', 'SV1V'], jpOk: true },
+  'swsh12.5': { jp: ['VSTARユニバース'], jpT: 'ハイクラスパック', kr: ['VSTAR 유니버스'], krT: '하이클래스팩', jpIds: ['S12a'], jpOk: false }
 };
 const EN_MSRP = 4.49;
 function packPrices(set) {
@@ -506,12 +508,13 @@ function pcPrune() {
 function pcPut(k, d) { const v = JSON.stringify({ t: Date.now(), d }); try { localStorage.setItem(PC + k, v); } catch { pcPrune(); try { localStorage.setItem(PC + k, v); } catch {} } }
 
 const cache = new Map();
-function api(path, params = {}, persist = false) {
+const API_ROOT = 'https://api.tcgdex.net/v2';
+function api(path, params = {}, persist = false, lang = 'en') {
   const qs = new URLSearchParams(params).toString();
-  const key = path + (qs ? '?' + qs : '');
+  const rel = path + (qs ? '?' + qs : ''), key = (lang === 'en' ? '' : lang + ':') + rel;
   if (cache.has(key)) return cache.get(key);
   const hit = persist && pcGet(key);
-  const p = hit ? Promise.resolve(hit) : getJSON(API + key).then(d => { if (persist) pcPut(key, d); return d; });
+  const p = hit ? Promise.resolve(hit) : getJSON(`${API_ROOT}/${lang}${rel}`).then(d => { if (persist) pcPut(key, d); return d; });
   cache.set(key, p);
   p.catch(() => cache.delete(key));
   return p;
@@ -523,11 +526,23 @@ function normSet(s) {
   return { id: s.id, name: s.name, series: s.serie?.name || '', releaseDate: s.releaseDate || '',
     printedTotal: s.cardCount?.official ?? '', total: s.cardCount?.total ?? '', images: { logo: s.logo ? s.logo + '.png' : '' } };
 }
-function normCard(c) {
+// 일본판 카드 이름 → 한국어: 포켓몬 이름만 사전으로 바꾼다 (트레이너 이름 등은 그대로)
+let JA_KEYS = null;
+function koCardName(ja) {
+  if (!ja) return ja;
+  JA_KEYS ??= [...byJa.keys()].filter(k => k.length > 1).sort((a, b) => b.length - a.length);
+  let out = ja;
+  for (const k of JA_KEYS) if (out.includes(k)) out = out.split(k).join(byJa.get(k).ko);
+  return out.replace(/メガ/g, '메가').replace(/の/g, '의 ');
+}
+const langOf = id => (id || '').startsWith('ja:') ? 'ja' : 'en';
+const dispName = c => S().region === 'kr' && c.nameKo ? c.nameKo : c.name;
+function normCard(c, lang = 'en') {
   const tp = c.pricing?.tcgplayer, cm = c.pricing?.cardmarket, prices = {};
   if (tp) for (const [k, v] of Object.entries(tp)) if (v && typeof v === 'object') prices[k] = { market: v.marketPrice ?? null, mid: v.midPrice ?? null };
   return {
-    id: c.id, name: c.name, rarity: c.rarity && c.rarity !== 'None' ? c.rarity : '', number: c.localId,
+    id: lang === 'en' ? c.id : `${lang}:${c.id}`, lang, name: c.name, nameKo: lang === 'ja' ? koCardName(c.name) : null,
+    rarity: c.rarity && c.rarity !== 'None' ? c.rarity : '', number: c.localId,
     set: normSet(c.set || {}), images: { small: imgUrl(c.image, 'low'), large: imgUrl(c.image, 'high') },
     tcgplayer: tp ? { prices } : null,
     cardmarket: cm ? { prices: { trendPrice: cm.trend ?? null, averageSellPrice: cm.avg ?? null, trendHolo: cm['trend-holo'] ?? null } } : null
@@ -535,14 +550,16 @@ function normCard(c) {
 }
 // 요약 → 화면용 임시 카드 (시세는 상세가 오면 채움)
 function briefCard(b, set) {
-  return { id: b.id, name: b.name, number: b.localId, rarity: '', brief: true, set: set || { name: '' },
+  const lang = langOf(b.id);
+  return { id: b.id, lang, name: b.name, nameKo: lang === 'ja' ? koCardName(b.name) : null, number: b.localId, rarity: '', brief: true, set: set || { name: '' },
     images: { small: imgUrl(b.image, 'low'), large: imgUrl(b.image, 'high') }, tcgplayer: null, cardmarket: null };
 }
 const full = new Map();
 function fetchCard(id) {
   if (!full.has(id)) {
     const hit = pcGet('c:' + id);
-    const p = hit ? Promise.resolve(hit) : getJSON(API + '/cards/' + encodeURIComponent(id)).then(normCard).then(c => { pcPut('c:' + id, c); return c; });
+    const lang = langOf(id), raw = lang === 'en' ? id : id.slice(lang.length + 1);
+    const p = hit ? Promise.resolve(hit) : getJSON(`${API_ROOT}/${lang}/cards/${encodeURIComponent(raw)}`).then(c => normCard(c, lang)).then(c => { pcPut('c:' + id, c); return c; });
     full.set(id, p); p.catch(() => full.delete(id));
   }
   return full.get(id);
@@ -561,7 +578,13 @@ async function fullCards(briefs, onCard, alive = () => true) {
   return out.filter(Boolean);
 }
 function progress(label) { return (c, n, t) => { const el = document.querySelector('.status'); if (el) el.textContent = `${label} ${n}/${t}`; }; }
-async function speciesBriefs(sp) {
+// 일본·한국판 모드면 일본판 카드에서 찾는다 (예: 리자드는 리자몽 카드를 제외)
+async function speciesBriefs(sp, region = 'en') {
+  if (region !== 'en' && sp.ja) {
+    const longer = NAMES.map(n => n[3]).filter(j => j && j !== sp.ja && j.includes(sp.ja));
+    const briefs = await api('/cards', { name: sp.ja }, true, 'ja');
+    return briefs.filter(c => c.name.includes(sp.ja) && !longer.some(j => c.name.includes(j))).map(b => ({ ...b, id: 'ja:' + b.id }));
+  }
   const token = norm(sp.en).split(' ').sort((a, b) => b.length - a.length)[0].replace(/'/g, '');
   const briefs = await api('/cards', { name: token }, true);
   const re = new RegExp(`(^|[^a-z])${norm(sp.en).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`);
@@ -573,6 +596,21 @@ async function cardsOfSpecies(sp, keep = () => true) {
 async function setRaw(id) { return api('/sets/' + encodeURIComponent(id), {}, true); }
 async function cardsOfSet(id, onCard = progress('수록 카드 불러오는 중'), alive) { return fullCards((await setRaw(id)).cards || [], onCard, alive); }
 async function setById(id) { return normSet(await setRaw(id)); }
+// 지금 판에서 쓸 카드 목록: 일본·한국판이고 일본판 데이터가 온전하면 일본판 세트들, 아니면 영문판
+function jpSource(set, region = S().region) { const m = REGION[set.id]; return region !== 'en' && m?.jpIds && m.jpOk ? m.jpIds : null; }
+const enSetOfJp = jpId => Object.keys(REGION).find(k => REGION[k].jpIds?.includes(jpId)) || null;
+async function poolBriefs(set, region = S().region) {
+  const ids = jpSource(set, region);
+  if (!ids) return { lang: 'en', briefs: (await setRaw(set.id)).cards || [] };
+  const raws = await Promise.all(ids.map(id => api('/sets/' + encodeURIComponent(id), {}, true, 'ja')));
+  return { lang: 'ja', briefs: raws.flatMap(r => (r.cards || []).map(b => ({ ...b, id: 'ja:' + b.id }))), names: raws.map(r => r.name) };
+}
+function poolNote(set, src, region = S().region) {
+  if (region === 'en') return '';
+  if (src.lang === 'ja') return `<p class="muted" style="margin:6px 0 0">📚 카드 목록: 🇯🇵 일본판 ${esc(src.names.join(' + '))}${region === 'kr' ? ' · 한국판은 일본판과 수록 카드·번호가 같아 일본판 이미지로 보여줘요 (이름은 포켓몬 이름만 한국어로)' : ''} · 시세는 Cardmarket(유럽) 일본판 기준</p>`;
+  if (REGION[set.id]?.jpIds) return '<p class="muted" style="margin:6px 0 0">📚 이 팩은 일본판 레어도 데이터가 부족해서 영문판 카드 목록으로 보여줘요.</p>';
+  return '';
+}
 // 비매품·특수 세트(트레이너 키트, 맥도날드, 프로모 등)와 아주 작은 세트는 팩 목록에서 제외
 const NOT_PACK = /trainer kit|mcdonald|promo|alternate|energ|jumbo|deck|\bkit\b|card creator|trick or trade|calendar|championship|futsal|best of|rumble|pop series/i;
 async function allSets() { return (await api('/sets', {}, true)).filter(x => !isPocket(x.id) && !NOT_PACK.test(x.name) && (x.cardCount?.total ?? 99) >= 20).map(normSet).reverse(); }
@@ -594,9 +632,9 @@ function logoTag(set, style = '') {
 }
 function tileHtml(c, extra = '') {
   const p = priceOf(c), t = tierOf(c.rarity);
-  const price = c.brief ? '<span class="muted">시세 불러오는 중…</span>' : p.krw != null ? `<b>${won(p.krw)}</b> <span class="muted">${usd(p.usd)}</span>` : '<span class="muted">시세 없음</span>';
-  return `<button class="tile" data-card="${esc(c.id)}">${extra}${p.krw != null ? `<span class="pbadge">${won(p.krw)}</span>` : ''}${imgTag(c.images.small, c.name)}
-    <div class="nm">${esc(c.name)}</div>
+  const price = c.brief ? '<span class="muted">시세 불러오는 중…</span>' : p.krw != null ? `<b>${won(p.krw)}</b> <span class="muted">${p.usd != null ? usd(p.usd) : eur(p.eur)}</span>` : '<span class="muted">시세 없음</span>';
+  return `<button class="tile" data-card="${esc(c.id)}">${extra}${p.krw != null ? `<span class="pbadge">${won(p.krw)}</span>` : ''}${imgTag(c.images.small, dispName(c))}
+    <div class="nm">${c.lang === 'ja' ? '🇯🇵 ' : ''}${esc(dispName(c))}</div>
     <div class="muted" style="font-size:.78rem">${esc(c.set.name)}${c.brief ? '' : ' · ' + TIERS[t].ab}</div>
     <div class="pr">${price}</div></button>`;
 }
@@ -642,6 +680,13 @@ document.getElementById('tabs').onclick = e => { const b = e.target.closest('but
 document.getElementById('homeLink').onclick = () => go('search');
 document.getElementById('binderBtn').onclick = () => go('binder');
 
+// ================= 판 선택 (🇰🇷/🇯🇵/🇺🇸) =================
+const EDITION = { kr: '🇰🇷 한국판', jp: '🇯🇵 일본판', en: '🇺🇸 영문판' };
+const regionBar = () => `<div class="sortbar" role="group" aria-label="판 선택" style="margin:6px 0 8px">${['kr', 'jp', 'en'].map(r => `<button data-region="${r}" class="${S().region === r ? 'on' : ''}" aria-pressed="${S().region === r}">${EDITION[r]}</button>`).join('')}</div>`;
+function bindRegionBar(rerender) {
+  view.querySelectorAll('[data-region]').forEach(b => b.onclick = () => { S().region = b.dataset.region; save(); rerender(); });
+}
+
 // ================= 1. 포켓몬 검색 =================
 const POPULAR = ['피카츄', '리자몽', '뮤츠', '뮤', '이브이', '님피아', '팬텀', '루기아', '레쿠쟈', '갸라도스', '잠만보', '마기라스'];
 async function renderSearch(q) {
@@ -661,20 +706,23 @@ async function renderSearch(q) {
   const sp = findSpecies(q);
   const out = document.getElementById('results');
   if (!sp) { out.innerHTML = `<div class="status">"${esc(q)}"을(를) 찾지 못했어요.</div>`; return; }
-  const nav = navSeq;
-  out.innerHTML = `<div class="status">${esc(sp.ko)} 카드 찾는 중…</div>${skeleton(8)}`;
-  const briefs = await speciesBriefs(sp);
+  const nav = navSeq, region = S().region, ed = EDITION[region];
+  out.innerHTML = `<div class="status">${esc(sp.ko)} ${ed} 카드 찾는 중…</div>${skeleton(8)}`;
+  const briefs = await speciesBriefs(sp, region);
   if (isStale(nav)) return;
-  if (!briefs.length) { out.innerHTML = `<div class="status">${esc(sp.ko)} 카드가 없어요.</div>`; return; }
-  out.innerHTML = `<div class="card"><h2>${esc(sp.ko)} <span class="muted">${esc(sp.en)} · ${esc(sp.ja)}</span></h2>
-    <p class="muted" style="margin:0" id="ld" aria-live="polite">영문판 카드 ${briefs.length}장 · 시세 불러오는 중 0/${briefs.length}</p></div>
+  const head = `<div class="card"><h2>${esc(sp.ko)} <span class="muted">${esc(sp.en)} · ${esc(sp.ja)}</span></h2>${regionBar()}`;
+  if (!briefs.length) { out.innerHTML = head + `<p class="muted" style="margin:0">${ed} 카드가 없어요.</p></div>`; bindRegionBar(() => renderSearch(q)); return; }
+  out.innerHTML = head + `
+    <p class="muted" style="margin:0" id="ld" aria-live="polite">${ed} 카드 ${briefs.length}장 · 시세 불러오는 중 0/${briefs.length}</p>
+    ${region === 'kr' ? '<p class="muted" style="margin:4px 0 0">한국판은 일본판과 카드가 같아 일본판 데이터로 보여줘요 (이름은 포켓몬 이름만 한국어로).</p>' : ''}</div>
     <div class="grid" id="cg">${briefs.map(b => tileHtml(briefCard(b))).join('')}</div>`;
+  bindRegionBar(() => renderSearch(q));
   const grid = document.getElementById('cg'), ld = document.getElementById('ld'), alive = () => grid.isConnected;
-  const cards = remember(await fullCards(briefs, (c, n, t) => { patchTile(grid, c); ld.textContent = `영문판 카드 ${t}장 · 시세 불러오는 중 ${n}/${t}`; }, alive));
+  const cards = remember(await fullCards(briefs, (c, n, t) => { patchTile(grid, c); ld.textContent = `${ed} 카드 ${t}장 · 시세 불러오는 중 ${n}/${t}`; }, alive));
   if (!alive()) return;
   cards.sort(byPriceDesc);
   const failed = briefs.length - cards.length;
-  ld.textContent = `영문판 카드 ${cards.length}장 · 비싼 순${failed ? ` · ${failed}장은 불러오지 못했어요` : ''}. 카드를 누르면 어느 팩에서 나오는지 보여줘요.`;
+  ld.textContent = `${ed} 카드 ${cards.length}장 · 비싼 순${failed ? ` · ${failed}장은 불러오지 못했어요` : ''}. 카드를 누르면 어느 팩에서 나오는지 보여줘요.`;
   grid.innerHTML = cards.map((c, i) => tileHtml(c, i < 3 ? `<span class="rank">${['🥇', '🥈', '🥉'][i]}</span>` : '')).join('');
 }
 
@@ -683,7 +731,8 @@ async function renderCard(id) {
   const nav = navSeq;
   let c = cardIndex.get(id);
   if (!c) { status('카드 불러오는 중…'); c = remember([await fetchCard(id)])[0]; if (isStale(nav)) return; }
-  const p = priceOf(c), t = tierOf(c.rarity), sp = speciesOfCard(c.name);
+  const p = priceOf(c), t = tierOf(c.rarity), isJa = c.lang === 'ja';
+  const sp = isJa ? [...byJa.values()].find(x => x.ja && c.name.includes(x.ja) && (c.nameKo || '').includes(x.ko)) || null : speciesOfCard(c.name);
   const my = store.myPrices['card:' + c.id] || {};
   const ab = TIERS[t].ab;
   const krQ = encodeURIComponent(`${sp ? sp.ko : c.name} ${ab} 포켓몬카드`);
@@ -692,12 +741,12 @@ async function renderCard(id) {
     <div><div class="${shineClass(c)}" style="border-radius:12px">${imgTag(c.images.large || c.images.small, c.name, 'cimg')}</div>
       ${variantKeys(c).length > 1 ? `<div class="muted" style="font-size:.8rem;margin-top:8px">버전별: ${variantKeys(c).map(k => `${VARIANT_KO[k] || k} <b>${won(priceOf(c, k).krw)}</b>`).join(' · ')}</div>` : ''}</div>
     <div>
-      <h2>${esc(c.name)} ${sp ? `<span class="muted">${esc(sp.ko)} · ${esc(sp.ja)}</span>` : ''}</h2>
+      <h2>${isJa ? '🇯🇵 ' : ''}${esc(dispName(c))} ${isJa ? `<span class="muted">${esc(c.name === dispName(c) ? c.nameKo || '' : c.name)}</span>` : sp ? `<span class="muted">${esc(sp.ko)} · ${esc(sp.ja)}</span>` : ''}</h2>
       <div><span class="chip">${esc(c.rarity || '—')}</span><span class="chip">${TIERS[t].ko} (${ab})</span><span class="chip">#${esc(c.number)}/${esc(c.set.printedTotal)}</span></div>
       <h3>💰 시세</h3>
       <div class="pchips">
-        <div class="pchip">🇺🇸 영문판 <span class="src ${p.krw != null ? 'auto' : 'none'}">${p.krw != null ? '자동' : '없음'}</span><span class="v">${won(p.krw)}</span><span class="muted">${p.krw != null ? `${usd(p.usd)} · ${eur(p.eur)}${p.variant ? ' · ' + (VARIANT_KO[p.variant] || p.variant) : ''}` : '신규 세트는 시세 반영이 늦어요'}</span></div>
-        <div class="pchip">🇯🇵 일본판 <span class="src ${my.jp != null ? 'mine' : 'none'}">${my.jp != null ? '내 입력' : '미입력'}</span><span class="v">${my.jp != null ? won(my.jp * S().jpyKrw) : '—'}</span><span class="muted">${my.jp != null ? yen(my.jp) : '링크에서 확인'}</span></div>
+        <div class="pchip">${isJa ? '🇯🇵 일본판' : '🇺🇸 영문판'} <span class="src ${p.krw != null ? 'auto' : 'none'}">${p.krw != null ? '자동' : '없음'}</span><span class="v">${won(p.krw)}</span><span class="muted">${p.krw != null ? `${usd(p.usd)} · ${eur(p.eur)}${p.variant ? ' · ' + (VARIANT_KO[p.variant] || p.variant) : ''}` : '신규 세트는 시세 반영이 늦어요'}</span></div>
+        ${isJa ? '' : `<div class="pchip">🇯🇵 일본판 <span class="src ${my.jp != null ? 'mine' : 'none'}">${my.jp != null ? '내 입력' : '미입력'}</span><span class="v">${my.jp != null ? won(my.jp * S().jpyKrw) : '—'}</span><span class="muted">${my.jp != null ? yen(my.jp) : '링크에서 확인'}</span></div>`}
         <div class="pchip">🇰🇷 한국판 <span class="src ${my.kr != null ? 'mine' : 'none'}">${my.kr != null ? '내 입력' : '미입력'}</span><span class="v">${my.kr != null ? won(my.kr) : '—'}</span><span class="muted">${my.kr != null ? '직접 확인한 가격' : '링크에서 확인'}</span></div>
       </div>
       <p class="muted" style="margin:8px 0 0">🇯🇵 <a href="https://snkrdunk.com/search?keywords=${jpQ}" target="_blank" rel="noopener">스니덩</a> · <a href="https://www.cardrush-pokemon.jp/product-list?keyword=${jpQ}" target="_blank" rel="noopener">카드러시</a> · <a href="https://yuyu-tei.jp/sell/poc/s/search?search_word=${jpQ}" target="_blank" rel="noopener">유유테이</a>
@@ -713,13 +762,17 @@ async function renderCard(id) {
     store.myPrices[k] = Object.assign({}, store.myPrices[k], { [inp.dataset.my]: v }); save(); setTimeout(() => renderCard(id));
   });
   const box = document.getElementById('packBox'), alive = () => box.isConnected;
-  const set = await setById(c.set.id);
+  const enId = isJa ? enSetOfJp(c.set.id) : c.set.id;
+  if (!enId) { box.innerHTML = '<p class="muted">이 카드의 팩 정보(영문판 대응)가 아직 정리되지 않았어요.</p>'; return; }
+  const set = await setById(enId);
   if (!alive()) return;
+  const region = isJa && S().region === 'en' ? 'jp' : S().region;
   const packBtn = `<button class="ghost" data-set="${esc(set.id)}" style="width:100%;text-align:left">
       <div class="packhead">${logoTag(set)}<div><b>${esc(set.name)}</b><br><span class="muted">${esc(set.series)} · ${esc(set.releaseDate)} 발매 · ${esc(set.total)}종</span></div></div></button>`;
-  const spec = specFor(set);
+  const spec = specFor(set, region);
   box.innerHTML = packBtn + `<p class="muted" id="oddsLd">확률 계산 중…</p>` + `<div class="row" style="margin-top:10px"><button data-set="${esc(set.id)}">📦 팩 정보 · 수록 카드 보기</button></div>`;
-  const setCards = remember(await cardsOfSet(c.set.id, (x, n, tot) => { const el = document.getElementById('oddsLd'); if (el) el.textContent = `확률 계산 중… ${n}/${tot}`; }, alive));
+  const src = await poolBriefs(set, region);
+  const setCards = remember(await fullCards(src.briefs, (x, n, tot) => { const el = document.getElementById('oddsLd'); if (el) el.textContent = `확률 계산 중… ${n}/${tot}`; }, alive));
   if (!alive()) return;
   const tiers = {};
   for (const x of setCards) { const k = tierOf(x.rarity); (tiers[k] = tiers[k] || []).push(x); }
@@ -737,7 +790,8 @@ async function renderCard(id) {
 async function renderSet(id) {
   const nav = navSeq;
   status('팩 정보 불러오는 중…', 8);
-  const raw = await setRaw(id), set = normSet(raw), briefs = raw.cards || [];
+  const raw = await setRaw(id), set = normSet(raw);
+  const src = await poolBriefs(set), briefs = src.briefs;
   if (isStale(nav)) return;
   const pp = packPrices(set), m = pp.map, packKr = packKrw(set), info = packInfo(set), spec = specFor(set);
   const priceRow = (flag, label, names, type, msrp, fmt, mine, key) => `<tr><th>${flag} ${label}</th><td>${names ? esc(names.join(' + ')) + ` <span class="muted">${esc(type)}</span><br>` : ''}
@@ -762,13 +816,14 @@ async function renderSet(id) {
     ${info.stale ? `<p class="warn">⚠️ 발매 2년이 지난 팩이에요. 절판 팩은 실제 시세가 정가보다 훨씬 높을 수 있어요. 위 링크에서 본 시세를 입력하면 그 값으로 계산해요.</p>` : ''}
     <p style="margin:10px 0 0"><b>📦 팩 구성</b> <span class="muted">${esc(spec.label)}</span><br>${esc(specText(spec))}</p>
     ${spec.fallback ? '<p class="muted" style="margin:4px 0 0">이 팩은 일본·한국판 대응 정보가 없어 영문판 구성으로 계산해요.</p>' : ''}
+    ${poolNote(set, src)}
     <h3>📊 한 팩의 평균 가치 (추정)</h3>
     <p style="margin:0" id="evBox" class="muted">카드 시세 불러오는 중…</p>
     <div class="row" style="margin-top:14px"><button id="openBtn" style="flex:1;padding:14px;font-size:1.05rem" disabled>카드 정보 불러오는 중…</button></div>
   </div>
   <div class="card"><h2>👑 가장 비싼 카드 TOP 10</h2><div id="topBox">${skeleton(4)}</div></div>
   <div class="card"><h2>🎲 레어도별 확률 (추정)</h2><div id="oddsBox" class="muted">계산 중…</div></div>
-  <div class="card"><h2>📚 이 팩에서 나올 수 있는 카드 (${briefs.length})</h2><div class="grid" id="allGrid">${briefs.map(b => tileHtml(briefCard(b, set))).join('')}</div></div>`;
+  <div class="card"><h2>📚 이 팩에서 나올 수 있는 카드 (${briefs.length}) <span class="muted" style="font-size:.85rem">${src.lang === 'ja' ? '🇯🇵 일본판 목록' : '🇺🇸 영문판 목록'}</span></h2><div class="grid" id="allGrid">${briefs.map(b => tileHtml(briefCard(b, set))).join('')}</div></div>`;
   view.querySelectorAll('[data-pk]').forEach(inp => inp.onchange = () => {
     const k = 'pack:' + set.id, v = inp.value === '' ? undefined : +inp.value;
     store.myPrices[k] = Object.assign({}, store.myPrices[k], { [inp.dataset.pk]: v }); save(); setTimeout(() => renderSet(id));
@@ -845,7 +900,7 @@ function confirmOpen(set, tiers, packKr, spec) {
     <h2 style="margin-top:10px">${esc(set.name)} 팩을 개봉할까요?</h2>
     <p style="margin:6px 0"><b>${esc(spec.label)}</b><br><span class="muted">${esc(specText(spec))}</span></p>
     ${spec.fallback ? '<p class="muted" style="margin:4px 0">이 팩은 일본·한국판 대응 정보가 없어 영문판 구성으로 열어요.</p>' : ''}
-    ${spec.jk ? '<p class="muted" style="margin:4px 0">카드 목록은 영문판 기준이에요 (일본·한국판 수록 카드와 조금 다를 수 있어요).</p>' : ''}
+    ${spec.jk && !jpSource(set) ? '<p class="muted" style="margin:4px 0">이 팩은 일본판 레어도 데이터가 부족해 영문판 카드로 열어요.</p>' : ''}
     <p class="muted">가상 개봉이라 실제 결제는 없어요.<br>실제로 샀다면 ${won(packKr)} <span style="font-size:.8rem">(${info.basis}${info.stale ? ' · 절판 팩은 실제로 더 비쌀 수 있어요' : ''})</span></p>
     <label class="muted" style="display:block;margin-bottom:12px"><input type="checkbox" id="quickOpen" ${store.quick ? 'checked' : ''}> ⚡ 빠르게 보기 (연출 없이 결과만)</label>
     <div class="row"><button class="ghost" id="noOpen" style="flex:1">아니요</button><button id="yesOpen" style="flex:1">개봉할게요!</button></div></div>`;
@@ -877,7 +932,7 @@ function openPack(set, tiers, packKr, spec) {
   const pack = buildPack(tiers, spec);
   store.opened++; store.spentIfReal += packKr || 0;
   for (const { c, v } of pack) {
-    const b = store.binder[c.id] || { n: 0, name: c.name, img: c.images.small, set: c.set.name, rarity: c.rarity };
+    const b = store.binder[c.id] || { n: 0, name: dispName(c), img: c.images.small, set: c.set.name, rarity: c.rarity };
     b.n++; b.krw = priceOf(c, v).krw; store.binder[c.id] = b;
   }
   save();
@@ -916,7 +971,7 @@ function openPack(set, tiers, packKr, spec) {
       onOpen: () => {
         if (g) { rv.classList.add('glow-' + g); buzz(g === 'hyper' || g === 'sir' ? [80, 50, 80, 50, 160] : [60]); }
         const hit = g ? `<div class="hitbanner" style="color:var(--${g === 'ultra' ? 'gold' : g})">${{ ultra: '✨ 울트라 레어!', ir: '🎨 일러스트 레어!', sir: '💜 스페셜 일러스트 레어!!', hyper: '👑 하이퍼 레어!!!' }[g]}</div>` : '';
-        document.getElementById('ri').innerHTML = `${hit}<div class="rar">${esc(c.name)}</div><div>${esc(c.rarity || '')}${e.v === 'reverse' ? ' · 리버스 홀로' : ''} · <b>${won(p.krw)}</b></div><div class="muted">탭해서 다음 카드</div>`;
+        document.getElementById('ri').innerHTML = `${hit}<div class="rar">${esc(dispName(c))}</div><div>${esc(c.rarity || '')}${e.v === 'reverse' ? ' · 리버스 홀로' : ''} · <b>${won(p.krw)}</b></div><div class="muted">탭해서 다음 카드</div>`;
         setTimeout(() => { rv.onclick = () => showCard(i + 1); }, 350);   // 여는 동작의 클릭이 바로 넘기지 않게
       }
     });
@@ -928,8 +983,8 @@ function openPack(set, tiers, packKr, spec) {
     stage.innerHTML = `<div class="summary">
       <h2 style="text-align:center;margin-bottom:4px">개봉 결과</h2>
       <p style="text-align:center;margin-top:0">카드 가치 합계 <b>${won(total)}</b> <span style="color:#aab">· 팩 ${won(packKr)}</span><br>
-        👑 최고가: <b>${esc(best.c.name)}</b> ${won(kr(best))}</p>
-      <div class="grid">${pack.map(e => `<div class="tile ${e === best ? 'best' : ''}">${imgTag(e.c.images.small, e.c.name)}<div class="nm">${esc(e.c.name)}</div><div class="pr">${won(kr(e))}${e.v === 'reverse' ? ' <span style="color:var(--fx-muted);font-size:.75rem">리버스</span>' : ''}</div></div>`).join('')}</div>
+        👑 최고가: <b>${esc(dispName(best.c))}</b> ${won(kr(best))}</p>
+      <div class="grid">${pack.map(e => `<div class="tile ${e === best ? 'best' : ''}">${imgTag(e.c.images.small, e.c.name)}<div class="nm">${esc(dispName(e.c))}</div><div class="pr">${won(kr(e))}${e.v === 'reverse' ? ' <span style="color:var(--fx-muted);font-size:.75rem">리버스</span>' : ''}</div></div>`).join('')}</div>
       <p style="text-align:center;color:#aab;font-size:.85rem">지금까지 가상 개봉 ${store.opened}팩 · 실제로 샀다면 ${won(store.spentIfReal)} · 실제 지출 ₩0</p>
       <div class="stageBtns"><button id="again">🎁 한 팩 더</button><button class="ghost" id="close">팩 정보로</button><button class="ghost" id="toBinder">📒 바인더</button></div></div>`;
     const close = () => { stage.classList.add('hidden'); document.body.style.overflow = ''; };
