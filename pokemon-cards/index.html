@@ -612,7 +612,7 @@ async function fullCards(briefs, onCard, alive = () => true) {
 function progress(label) { return (c, n, t) => { const el = document.querySelector('.status'); if (el) el.textContent = `${label} ${n}/${t}`; }; }
 // 일본·한국판 모드면 일본판 카드에서 찾는다 (예: 리자드는 리자몽 카드를 제외)
 async function speciesBriefs(sp, region = 'en') {
-  if (region !== 'en' && sp.ja) {
+  if (USE_JP_CARDS && region !== 'en' && sp.ja) {
     const longer = NAMES.map(n => n[3]).filter(j => j && j !== sp.ja && j.includes(sp.ja));
     const briefs = await api('/cards', { name: sp.ja }, true, 'ja');
     return briefs.filter(c => c.name.includes(sp.ja) && !longer.some(j => c.name.includes(j))).map(b => ({ ...b, id: 'ja:' + b.id }));
@@ -629,7 +629,9 @@ async function setRaw(id) { return api('/sets/' + encodeURIComponent(id), {}, tr
 async function cardsOfSet(id, onCard = progress('수록 카드 불러오는 중'), alive) { return fullCards((await setRaw(id)).cards || [], onCard, alive); }
 async function setById(id) { return normSet(await setRaw(id)); }
 // 지금 판에서 쓸 카드 목록: 일본·한국판이고 일본판 데이터가 온전하면 일본판 세트들, 아니면 영문판
-function jpSource(set, region = S().region) { const m = REGION[set.id]; return region !== 'en' && m?.jpIds && m.jpOk ? m.jpIds : null; }
+// TCGdex 일본판 카드는 이미지가 거의 없어서 기본은 영문판 카드 목록·이미지를 쓴다. 이미지가 채워지면 true로.
+const USE_JP_CARDS = false;
+function jpSource(set, region = S().region) { const m = REGION[set.id]; return USE_JP_CARDS && region !== 'en' && m?.jpIds && m.jpOk ? m.jpIds : null; }
 const enSetOfJp = jpId => Object.keys(REGION).find(k => REGION[k].jpIds?.includes(jpId)) || null;
 async function poolBriefs(set, region = S().region) {
   const ids = jpSource(set, region);
@@ -640,8 +642,7 @@ async function poolBriefs(set, region = S().region) {
 function poolNote(set, src, region = S().region) {
   if (region === 'en') return '';
   if (src.lang === 'ja') return `<p class="muted" style="margin:6px 0 0">📚 카드 목록: 🇯🇵 일본판 ${esc(src.names.join(' + '))}${region === 'kr' ? ' · 한국판은 일본판과 수록 카드·번호가 같아 일본판 이미지로 보여줘요 (이름은 포켓몬 이름만 한국어로)' : ''} · 시세는 Cardmarket(유럽) 일본판 기준</p>`;
-  if (REGION[set.id]?.jpIds) return '<p class="muted" style="margin:6px 0 0">📚 이 팩은 일본판 레어도 데이터가 부족해서 영문판 카드 목록으로 보여줘요.</p>';
-  return '';
+  return `<p class="muted" style="margin:6px 0 0">📚 카드 목록·이미지는 🇺🇸 영문판 기준이에요 (팩 구성·확률·가격은 ${EDITION[region]} 기준).</p>`;
 }
 // 비매품·특수 세트(트레이너 키트, 맥도날드, 프로모 등)와 아주 작은 세트는 팩 목록에서 제외
 const NOT_PACK = /trainer kit|mcdonald|promo|alternate|energ|jumbo|deck|\bkit\b|card creator|trick or trade|calendar|championship|futsal|best of|rumble|pop series/i;
@@ -738,11 +739,11 @@ async function renderSearch(q) {
   const sp = findSpecies(q);
   const out = document.getElementById('results');
   if (!sp) { out.innerHTML = `<div class="status">"${esc(q)}"을(를) 찾지 못했어요.</div>`; return; }
-  const nav = navSeq, region = S().region, ed = EDITION[region];
+  const nav = navSeq, region = USE_JP_CARDS ? S().region : 'en', ed = EDITION[region];
   out.innerHTML = `<div class="status">${esc(sp.ko)} ${ed} 카드 찾는 중…</div>${skeleton(8)}`;
   const briefs = await speciesBriefs(sp, region);
   if (isStale(nav)) return;
-  const head = `<div class="card"><h2>${esc(sp.ko)} <span class="muted">${esc(sp.en)} · ${esc(sp.ja)}</span></h2>${regionBar()}`;
+  const head = `<div class="card"><h2>${esc(sp.ko)} <span class="muted">${esc(sp.en)} · ${esc(sp.ja)}</span></h2>${USE_JP_CARDS ? regionBar() : ''}`;
   if (!briefs.length) { out.innerHTML = head + `<p class="muted" style="margin:0">${ed} 카드가 없어요.</p></div>`; bindRegionBar(() => renderSearch(q)); return; }
   out.innerHTML = head + `
     <p class="muted" style="margin:0" id="ld" aria-live="polite">${ed} 카드 ${briefs.length}장 · 시세 불러오는 중 0/${briefs.length}</p>
@@ -945,7 +946,7 @@ function confirmOpen(set, tiers, packKr, spec) {
     <h2 style="margin-top:10px">${esc(set.name)} 팩을 개봉할까요?</h2>
     <p style="margin:6px 0"><b>${esc(spec.label)}</b><br><span class="muted">${esc(specText(spec))}</span></p>
     ${spec.fallback ? '<p class="muted" style="margin:4px 0">이 팩은 일본·한국판 대응 정보가 없어 영문판 구성으로 열어요.</p>' : ''}
-    ${spec.jk && !jpSource(set) ? '<p class="muted" style="margin:4px 0">이 팩은 일본판 레어도 데이터가 부족해 영문판 카드로 열어요.</p>' : ''}
+    ${spec.jk && !jpSource(set) ? '<p class="muted" style="margin:4px 0">카드 목록·이미지는 영문판 기준이에요.</p>' : ''}
     <p class="muted">가상 개봉이라 실제 결제는 없어요.<br>실제로 샀다면 ${won(packKr)} <span style="font-size:.8rem">(${info.basis}${info.stale ? ' · 절판 팩은 실제로 더 비쌀 수 있어요' : ''})</span></p>
     <label class="muted" style="display:block;margin-bottom:12px"><input type="checkbox" id="quickOpen" ${store.quick ? 'checked' : ''}> ⚡ 빠르게 보기 (연출 없이 결과만)</label>
     <div class="row"><button class="ghost" id="noOpen" style="flex:1">아니요</button><button id="yesOpen" style="flex:1">개봉할게요!</button></div></div>`;
