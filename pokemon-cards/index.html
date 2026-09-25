@@ -73,7 +73,13 @@ details.mine summary { cursor: pointer; color: var(--muted); font-size: .86rem; 
 .suggest button { padding: 6px 10px; font-size: .88rem; }
 
 /* card grid */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); gap: 12px; }
+.grid > * { min-width: 0; }
+main { overflow-x: clip; }
+.logo { max-height: 64px; max-width: 100%; object-fit: contain; }
+.tile img.logo { width: auto; max-width: 100%; height: 64px; aspect-ratio: auto; background: none; margin: 0 auto; }
+.logoPh { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; max-width: 200px; padding: 6px 12px; border-radius: 10px; background: var(--chip); color: var(--ink); font-weight: 800; font-size: .9rem; text-align: center; line-height: 1.2; }
+.packart .logoPh { background: rgba(255,255,255,.9); color: #1b1b1b; }
 .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px; cursor: pointer; text-align: left; color: var(--ink); font-weight: 400; position: relative; }
 .tile:hover { border-color: var(--accent); }
 .tile:active { transform: scale(.98); }
@@ -96,6 +102,7 @@ th { color: var(--muted); font-weight: 500; white-space: nowrap; }
 /* pack */
 .packhead { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .packhead img { height: 56px; max-width: 200px; object-fit: contain; }
+.packhead { min-width: 0; } .packhead > div { min-width: 0; overflow-wrap: anywhere; }
 .odds td:last-child, .odds th:last-child { text-align: right; }
 
 /* opening */
@@ -372,15 +379,45 @@ const yen = n => n == null ? '—' : '¥' + Math.round(n).toLocaleString('ja-JP'
 const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
 // ================= API (TCGdex) =================
-// 목록 API는 요약(id·번호·이름·이미지)만 주므로, 레어도·시세는 카드별 상세를 동시에 여러 개 불러온다.
+// 목록 API는 요약(id·번호·이름·이미지)만 주므로, 레어도·시세는 카드별 상세를 따로 불러온다.
+// 안정성: 요청마다 12초 제한 + 최대 3번 재시도, 받은 결과는 폰에 12시간 저장(두 번째부터 즉시).
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+class NotFound extends Error {}
+async function getJSON(url) {
+  for (let attempt = 0; ; attempt++) {
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 12000);
+    try {
+      const r = await fetch(url, { signal: ctl.signal });
+      if (r.status === 404) throw new NotFound('없는 카드예요');
+      if (!r.ok) throw new Error('서버 응답 ' + r.status);
+      return await r.json();
+    } catch (e) {
+      if (e instanceof NotFound || attempt >= 2) throw e.name === 'AbortError' ? new Error('응답이 너무 느려요') : e;
+      await sleep(700 * (attempt + 1));
+    } finally { clearTimeout(tm); }
+  }
+}
+// 영구 캐시 (localStorage, 12시간). 용량이 차면 오래된 것부터 절반 비운다.
+const PC = 'pkc1:', PC_TTL = 12 * 3600e3;
+function pcGet(k) { try { const v = JSON.parse(localStorage.getItem(PC + k)); if (v && Date.now() - v.t < PC_TTL) return v.d; } catch {} return null; }
+function pcPrune() {
+  try {
+    const ks = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith(PC)) { let t = 0; try { t = JSON.parse(localStorage.getItem(k)).t; } catch {} ks.push([k, t]); } }
+    ks.sort((a, b) => a[1] - b[1]).slice(0, Math.ceil(ks.length / 2)).forEach(([k]) => localStorage.removeItem(k));
+  } catch {}
+}
+function pcPut(k, d) { const v = JSON.stringify({ t: Date.now(), d }); try { localStorage.setItem(PC + k, v); } catch { pcPrune(); try { localStorage.setItem(PC + k, v); } catch {} } }
+
 const cache = new Map();
-async function api(path, params = {}) {
+function api(path, params = {}, persist = false) {
   const qs = new URLSearchParams(params).toString();
-  const url = API + path + (qs ? '?' + qs : '');
-  if (cache.has(url)) return cache.get(url);
-  const p = fetch(url).then(r => { if (!r.ok) throw new Error('API ' + r.status); return r.json(); });
-  cache.set(url, p);
-  p.catch(() => cache.delete(url));
+  const key = path + (qs ? '?' + qs : '');
+  if (cache.has(key)) return cache.get(key);
+  const hit = persist && pcGet(key);
+  const p = hit ? Promise.resolve(hit) : getJSON(API + key).then(d => { if (persist) pcPut(key, d); return d; });
+  cache.set(key, p);
+  p.catch(() => cache.delete(key));
   return p;
 }
 // TCGdex에는 모바일 게임 'TCG 포켓' 카드도 섞여 있다 (세트 A1, A2a, B1, P-A …) → 제외
@@ -400,52 +437,80 @@ function normCard(c) {
     cardmarket: cm ? { prices: { trendPrice: cm.trend ?? null, averageSellPrice: cm.avg ?? null } } : null
   };
 }
+// 요약 → 화면용 임시 카드 (시세는 상세가 오면 채움)
+function briefCard(b, set) {
+  return { id: b.id, name: b.name, number: b.localId, rarity: '', brief: true, set: set || { name: '' },
+    images: { small: imgUrl(b.image, 'low'), large: imgUrl(b.image, 'high') }, tcgplayer: null, cardmarket: null };
+}
 const full = new Map();
 function fetchCard(id) {
   if (!full.has(id)) {
-    const p = api('/cards/' + encodeURIComponent(id)).then(normCard);
+    const hit = pcGet('c:' + id);
+    const p = hit ? Promise.resolve(hit) : getJSON(API + '/cards/' + encodeURIComponent(id)).then(normCard).then(c => { pcPut('c:' + id, c); return c; });
     full.set(id, p); p.catch(() => full.delete(id));
   }
   return full.get(id);
 }
-// 동시 10개씩, 진행률 콜백
-async function fullCards(briefs, onProgress) {
+// 동시 10개씩. onCard(카드|null, 완료수, 전체) · alive()가 false면 중단(화면을 떠난 경우)
+async function fullCards(briefs, onCard, alive = () => true) {
   const out = new Array(briefs.length); let i = 0, done = 0;
   const worker = async () => {
-    while (i < briefs.length) {
+    while (i < briefs.length && alive()) {
       const k = i++;
       out[k] = await fetchCard(briefs[k].id).catch(() => null);
-      onProgress && onProgress(++done, briefs.length);
+      onCard && alive() && onCard(out[k], ++done, briefs.length, briefs[k]);
     }
   };
   await Promise.all(Array.from({ length: Math.min(10, briefs.length) }, worker));
   return out.filter(Boolean);
 }
-function progress(label) { return (n, t) => { const el = document.querySelector('.status'); if (el) el.textContent = `${label} ${n}/${t}`; }; }
-async function cardsOfSpecies(sp, keep = () => true) {
+function progress(label) { return (c, n, t) => { const el = document.querySelector('.status'); if (el) el.textContent = `${label} ${n}/${t}`; }; }
+async function speciesBriefs(sp) {
   const token = norm(sp.en).split(' ').sort((a, b) => b.length - a.length)[0].replace(/'/g, '');
-  const briefs = await api('/cards', { name: token });
+  const briefs = await api('/cards', { name: token }, true);
   const re = new RegExp(`(^|[^a-z])${norm(sp.en).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`);
-  return fullCards(briefs.filter(c => !isPocket(c.id) && re.test(norm(c.name)) && keep(c)), progress(`${sp.ko} 카드 불러오는 중`));
+  return briefs.filter(c => !isPocket(c.id) && re.test(norm(c.name)));
 }
-async function setRaw(id) { return api('/sets/' + encodeURIComponent(id)); }
-async function cardsOfSet(id) { return fullCards((await setRaw(id)).cards || [], progress('수록 카드 불러오는 중')); }
+async function cardsOfSpecies(sp, keep = () => true) {
+  return fullCards((await speciesBriefs(sp)).filter(keep), progress(`${sp.ko} 카드 불러오는 중`));
+}
+async function setRaw(id) { return api('/sets/' + encodeURIComponent(id), {}, true); }
+async function cardsOfSet(id, onCard = progress('수록 카드 불러오는 중'), alive) { return fullCards((await setRaw(id)).cards || [], onCard, alive); }
 async function setById(id) { return normSet(await setRaw(id)); }
-async function allSets() { return (await api('/sets')).filter(x => !isPocket(x.id)).map(normSet).reverse(); }
+// 비매품·특수 세트(트레이너 키트, 맥도날드, 프로모 등)와 아주 작은 세트는 팩 목록에서 제외
+const NOT_PACK = /trainer kit|mcdonald|promo|alternate|energ|jumbo|deck|\bkit\b|card creator|trick or trade|calendar|championship|futsal|best of|rumble|pop series/i;
+async function allSets() { return (await api('/sets', {}, true)).filter(x => !isPocket(x.id) && !NOT_PACK.test(x.name) && (x.cardCount?.total ?? 99) >= 20).map(normSet).reverse(); }
 
 // ================= 화면 공통 =================
 const view = document.getElementById('view');
 const skeleton = n => `<div class="grid" aria-hidden="true">${'<div class="tile skel"><i></i><b></b><b></b></div>'.repeat(n)}</div>`;
 const status = (msg, skel = 0) => view.innerHTML = `<div class="status">${msg}</div>${skeleton(skel)}`;
 const fail = (e) => status(`불러오지 못했어요 😢<br><span class="muted">${esc(e.message)} · 잠시 뒤 다시 시도해주세요.</span>`);
-function imgTag(src, alt, cls = '') { return `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" loading="lazy" onerror="this.style.visibility='hidden'">`; }
+// 이미지가 없거나 깨지면 빈 칸 대신 대체 그림
+const NOIMG = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 63 88"><rect width="63" height="88" rx="4" fill="#e6eaf1"/><circle cx="31.5" cy="38" r="12" fill="none" stroke="#b7c0cf" stroke-width="3"/><path d="M19.5 38h24" stroke="#b7c0cf" stroke-width="3"/><circle cx="31.5" cy="38" r="3.5" fill="#fff" stroke="#b7c0cf" stroke-width="2.5"/><text x="31.5" y="66" font-size="6.5" text-anchor="middle" fill="#8a94a6" font-family="sans-serif">이미지 준비 중</text></svg>');
+function imgTag(src, alt, cls = '') {
+  return `<img class="${cls}" src="${esc(src || NOIMG)}" alt="${esc(alt)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${NOIMG}'">`;
+}
+function logoTag(set, style = '') {
+  return set.images.logo
+    ? `<img class="logo" src="${esc(set.images.logo)}" alt="${esc(set.name)}" loading="lazy" style="${style}" onerror="this.outerHTML='<span class=&quot;logoPh&quot;>'+this.alt.replace(/</g,'')+'</span>'">`
+    : `<span class="logoPh">${esc(set.name)}</span>`;
+}
 function tileHtml(c, extra = '') {
   const p = priceOf(c), t = tierOf(c.rarity);
+  const price = c.brief ? '<span class="muted">시세 불러오는 중…</span>' : p.krw != null ? `<b>${won(p.krw)}</b> <span class="muted">${usd(p.usd)}</span>` : '<span class="muted">시세 없음</span>';
   return `<button class="tile" data-card="${esc(c.id)}">${extra}${p.krw != null ? `<span class="pbadge">${won(p.krw)}</span>` : ''}${imgTag(c.images.small, c.name)}
     <div class="nm">${esc(c.name)}</div>
-    <div class="muted" style="font-size:.78rem">${esc(c.set.name)} · ${TIERS[t].ab}</div>
-    <div class="pr"><b>${won(p.krw)}</b> <span class="muted">${usd(p.usd)}</span></div></button>`;
+    <div class="muted" style="font-size:.78rem">${esc(c.set.name)}${c.brief ? '' : ' · ' + TIERS[t].ab}</div>
+    <div class="pr">${price}</div></button>`;
 }
+// 타일을 요약으로 먼저 그리고, 상세가 도착하는 대로 한 장씩 교체
+function patchTile(grid, c) {
+  if (!c) return;
+  const el = grid.querySelector(`[data-card="${CSS.escape(c.id)}"]`);
+  if (el) el.outerHTML = tileHtml(c);
+}
+const byPriceDesc = (a, b) => (priceOf(b).krw ?? -1) - (priceOf(a).krw ?? -1);
 const cardIndex = new Map();
 function remember(cards) { for (const c of cards) cardIndex.set(c.id, c); return cards; }
 view.addEventListener('click', e => {
@@ -496,12 +561,19 @@ async function renderSearch(q) {
   const sp = findSpecies(q);
   const out = document.getElementById('results');
   if (!sp) { out.innerHTML = `<div class="status">"${esc(q)}"을(를) 찾지 못했어요.</div>`; return; }
-  out.innerHTML = `<div class="status">${esc(sp.ko)} 카드 불러오는 중…</div>${skeleton(8)}`;
-  const cards = remember(await cardsOfSpecies(sp));
-  cards.sort((a, b) => (priceOf(b).krw ?? -1) - (priceOf(a).krw ?? -1));
+  out.innerHTML = `<div class="status">${esc(sp.ko)} 카드 찾는 중…</div>${skeleton(8)}`;
+  const briefs = await speciesBriefs(sp);
+  if (!briefs.length) { out.innerHTML = `<div class="status">${esc(sp.ko)} 카드가 없어요.</div>`; return; }
   out.innerHTML = `<div class="card"><h2>${esc(sp.ko)} <span class="muted">${esc(sp.en)} · ${esc(sp.ja)}</span></h2>
-    <p class="muted" style="margin:0">영문판 카드 ${cards.length}장 · 비싼 순. 카드를 누르면 어느 팩에서 나오는지 보여줘요.</p></div>
-    <div class="grid">${cards.map((c, i) => tileHtml(c, i < 3 ? `<span class="rank">${['🥇', '🥈', '🥉'][i]}</span>` : '')).join('')}</div>`;
+    <p class="muted" style="margin:0" id="ld" aria-live="polite">영문판 카드 ${briefs.length}장 · 시세 불러오는 중 0/${briefs.length}</p></div>
+    <div class="grid" id="cg">${briefs.map(b => tileHtml(briefCard(b))).join('')}</div>`;
+  const grid = document.getElementById('cg'), ld = document.getElementById('ld'), alive = () => grid.isConnected;
+  const cards = remember(await fullCards(briefs, (c, n, t) => { patchTile(grid, c); ld.textContent = `영문판 카드 ${t}장 · 시세 불러오는 중 ${n}/${t}`; }, alive));
+  if (!alive()) return;
+  cards.sort(byPriceDesc);
+  const failed = briefs.length - cards.length;
+  ld.textContent = `영문판 카드 ${cards.length}장 · 비싼 순${failed ? ` · ${failed}장은 불러오지 못했어요` : ''}. 카드를 누르면 어느 팩에서 나오는지 보여줘요.`;
+  grid.innerHTML = cards.map((c, i) => tileHtml(c, i < 3 ? `<span class="rank">${['🥇', '🥈', '🥉'][i]}</span>` : '')).join('');
 }
 
 // ================= 2. 카드 상세 =================
@@ -536,39 +608,35 @@ async function renderCard(id) {
     const k = 'card:' + c.id, v = inp.value === '' ? undefined : +inp.value;
     store.myPrices[k] = Object.assign({}, store.myPrices[k], { [inp.dataset.my]: v }); save(); setTimeout(() => renderCard(id));
   });
-  const [set, setCards] = await Promise.all([setById(c.set.id), cardsOfSet(c.set.id).then(remember)]);
-  const tierCount = setCards.filter(x => tierOf(x.rarity) === t).length || 1;
+  const box = document.getElementById('packBox'), alive = () => box.isConnected;
+  const set = await setById(c.set.id);
+  if (!alive()) return;
+  const packBtn = `<button class="ghost" data-set="${esc(set.id)}" style="width:100%;text-align:left">
+      <div class="packhead">${logoTag(set)}<div><b>${esc(set.name)}</b><br><span class="muted">${esc(set.series)} · ${esc(set.releaseDate)} 발매 · ${esc(set.total)}종</span></div></div></button>`;
   const rate = TIERS[t].rate;
+  box.innerHTML = packBtn + (rate ? `<p class="muted" id="oddsLd">확률 계산 중…</p>` : '') + `<div class="row" style="margin-top:10px"><button data-set="${esc(set.id)}">📦 팩 정보 · 수록 카드 보기</button></div>`;
+  if (!rate) return;
+  const setCards = remember(await cardsOfSet(c.set.id, (x, n, tot) => { const el = document.getElementById('oddsLd'); if (el) el.textContent = `확률 계산 중… ${n}/${tot}`; }, alive));
+  if (!alive()) return;
+  const tierCount = setCards.filter(x => tierOf(x.rarity) === t).length || 1;
   const pk = packKrw(set);
-  document.getElementById('packBox').innerHTML = `
-    <button class="ghost" data-set="${esc(set.id)}" style="width:100%;text-align:left">
-      <div class="packhead">${imgTag(set.images.logo, set.name)}<div><b>${esc(set.name)}</b><br><span class="muted">${esc(set.series)} · ${esc(set.releaseDate)} 발매 · ${setCards.length}종</span></div></div>
-    </button>
-    ${rate ? `<table style="margin-top:8px">
+  document.getElementById('oddsLd').outerHTML = `<table style="margin-top:8px">
       <tr><th>한 팩에서 이 카드</th><td>약 1/${Math.round(tierCount / rate).toLocaleString()} <span class="muted">(${TIERS[t].ko} 1/${Math.round(1 / rate)} × ${tierCount}종)</span></td></tr>
       <tr><th>팩으로 뽑으면</th><td>평균 약 ${won(tierCount / rate * pk)} <span class="muted">(팩 ${won(pk)} 기준)</span></td></tr>
-      <tr><th>싱글로 사면</th><td>${won(p.krw)}</td></tr></table>` : `<p class="muted">${TIERS[t].ko} 등급은 팩마다 여러 장 들어 있어요.</p>`}
-    <div class="row" style="margin-top:10px"><button data-set="${esc(set.id)}">📦 팩 정보 · 수록 카드 보기</button></div>`;
+      <tr><th>싱글로 사면</th><td>${won(p.krw)}</td></tr></table>`;
 }
 
 // ================= 3. 팩 정보 =================
 async function renderSet(id) {
   status('팩 정보 불러오는 중…', 8);
-  const [set, cards] = await Promise.all([setById(id), cardsOfSet(id)]);
-  remember(cards);
-  const pp = packPrices(set), m = pp.map;
-  const byPrice = [...cards].sort((a, b) => (priceOf(b).krw ?? -1) - (priceOf(a).krw ?? -1));
-  const tiers = {};
-  for (const c of cards) { const t = tierOf(c.rarity); (tiers[t] = tiers[t] || []).push(c); }
-  const packKr = packKrw(set);
-  // 기대값: 팩 한 장에 들어가는 카드들의 평균 시세 합
-  const ev = expectedValue(tiers);
+  const raw = await setRaw(id), set = normSet(raw), briefs = raw.cards || [];
+  const pp = packPrices(set), m = pp.map, packKr = packKrw(set);
   const priceRow = (flag, label, names, type, msrp, fmt, mine, key) => `<tr><th>${flag} ${label}</th><td>${names ? esc(names.join(' + ')) + ` <span class="muted">${esc(type)}</span><br>` : ''}
       정가 <b>${msrp != null ? fmt(msrp) : '확인 필요'}</b>${mine != null ? ` · 내가 본 시세 <b>${fmt(mine)}</b>` : ''}
       <div class="row" style="margin-top:4px"><input class="priceIn" type="number" min="0" step="any" placeholder="본 시세" data-pk="${key}" value="${mine ?? ''}"></div></td></tr>`;
   const q = encodeURIComponent(set.name + ' booster pack');
   view.innerHTML = `<div class="card">
-    <div class="packhead">${imgTag(set.images.logo, set.name)}<div><h2 style="margin:0">${esc(set.name)}</h2><span class="muted">${esc(set.series)} · ${esc(set.releaseDate)} 발매 · ${cards.length}종</span></div></div>
+    <div class="packhead">${logoTag(set)}<div><h2 style="margin:0">${esc(set.name)}</h2><span class="muted">${esc(set.series)} · ${esc(set.releaseDate)} 발매 · ${briefs.length}종</span></div></div>
     <h3>🏷️ 팩 1개 적정 가격</h3>
     <table>
       ${priceRow('🇺🇸', '영문판', null, '', pp.en.msrp, usd, pp.en.my, 'en')}
@@ -578,29 +646,39 @@ async function renderSet(id) {
     <p class="muted">실거래 시세: <a href="https://www.pricecharting.com/search-products?q=${q}&type=prices" target="_blank" rel="noopener">PriceCharting</a> · <a href="https://www.tcgplayer.com/search/pokemon/product?q=${q}" target="_blank" rel="noopener">TCGplayer</a>${m ? ` · <a href="https://snkrdunk.com/search?keywords=${encodeURIComponent(m.jp[0] + ' パック')}" target="_blank" rel="noopener">스니덩</a> · <a href="https://m.bunjang.co.kr/search/products?q=${encodeURIComponent(m.kr[0] + ' 팩')}" target="_blank" rel="noopener">번개장터</a>` : ''}
     · 한국판은 2026년 6월 이후 출시 확장팩부터 1,500원으로 인상됐어요.</p>
     <div class="row">
-      <label class="muted">개봉 기준 가격</label>
+      <label class="muted" for="regionSel">개봉 기준 가격</label>
       <select id="regionSel">${['kr', 'jp', 'en'].map(r => `<option value="${r}" ${S().region === r ? 'selected' : ''}>${{ kr: '🇰🇷 한국판', jp: '🇯🇵 일본판', en: '🇺🇸 영문판' }[r]}</option>`).join('')}</select>
       <b>${won(packKr)}</b>
     </div>
     <h3>📊 한 팩의 평균 가치 (추정)</h3>
-    <p style="margin:0">약 <b>${won(ev)}</b> <span class="muted">· 팩 가격 ${won(packKr)} 대비 ${packKr ? Math.round(ev / packKr * 100) : '—'}%</span></p>
-    <div class="row" style="margin-top:14px"><button id="openBtn" style="flex:1;padding:14px;font-size:1.05rem">🎁 이 팩 개봉하기</button></div>
+    <p style="margin:0" id="evBox" class="muted">카드 시세 불러오는 중…</p>
+    <div class="row" style="margin-top:14px"><button id="openBtn" style="flex:1;padding:14px;font-size:1.05rem" disabled>카드 정보 불러오는 중…</button></div>
   </div>
-
-  <div class="card"><h2>👑 가장 비싼 카드 TOP 10</h2><div class="grid">${byPrice.slice(0, 10).map((c, i) => tileHtml(c, `<span class="rank">${i + 1}</span>`)).join('')}</div></div>
-
-  <div class="card"><h2>🎲 레어도별 확률 (추정)</h2>
-    <table class="odds"><tr><th>레어도</th><th>종류</th><th>한 팩에서</th></tr>
-    ${Object.keys(TIERS).filter(t => tiers[t]).map(t => `<tr><td>${TIERS[t].ko} (${TIERS[t].ab})</td><td>${tiers[t].length}종</td><td>${TIERS[t].rate ? '약 1/' + Math.round(1 / TIERS[t].rate) : t === 'promo' ? '팩 미수록' : '매 팩'}</td></tr>`).join('')}
-    </table></div>
-
-  <div class="card"><h2>📚 이 팩에서 나올 수 있는 카드 (${cards.length})</h2><div class="grid">${byPrice.map(c => tileHtml(c)).join('')}</div></div>`;
+  <div class="card"><h2>👑 가장 비싼 카드 TOP 10</h2><div id="topBox">${skeleton(4)}</div></div>
+  <div class="card"><h2>🎲 레어도별 확률 (추정)</h2><div id="oddsBox" class="muted">계산 중…</div></div>
+  <div class="card"><h2>📚 이 팩에서 나올 수 있는 카드 (${briefs.length})</h2><div class="grid" id="allGrid">${briefs.map(b => tileHtml(briefCard(b, set))).join('')}</div></div>`;
   view.querySelectorAll('[data-pk]').forEach(inp => inp.onchange = () => {
     const k = 'pack:' + set.id, v = inp.value === '' ? undefined : +inp.value;
     store.myPrices[k] = Object.assign({}, store.myPrices[k], { [inp.dataset.pk]: v }); save(); setTimeout(() => renderSet(id));
   });
   document.getElementById('regionSel').onchange = e => { S().region = e.target.value; save(); renderSet(id); };
-  document.getElementById('openBtn').onclick = () => confirmOpen(set, tiers, packKr);
+
+  const grid = document.getElementById('allGrid'), btn = document.getElementById('openBtn'), alive = () => grid.isConnected;
+  const cards = remember(await fullCards(briefs, (c, n, t) => { patchTile(grid, c); btn.textContent = `카드 정보 불러오는 중… ${n}/${t}`; }, alive));
+  if (!alive()) return;
+  if (!cards.length) { btn.textContent = '카드 정보를 불러오지 못했어요'; document.getElementById('evBox').textContent = '—'; return; }
+  const byPrice = [...cards].sort(byPriceDesc);
+  const tiers = {};
+  for (const c of cards) { const t = tierOf(c.rarity); (tiers[t] = tiers[t] || []).push(c); }
+  const ev = expectedValue(tiers);   // 팩 한 장에 들어가는 카드들의 평균 시세 합
+  const failed = briefs.length - cards.length;
+  document.getElementById('evBox').outerHTML = `<p style="margin:0">약 <b>${won(ev)}</b> <span class="muted">· 팩 가격 ${won(packKr)} 대비 ${packKr ? Math.round(ev / packKr * 100) : '—'}%${failed ? ` · ${failed}장 제외` : ''}</span></p>`;
+  document.getElementById('topBox').innerHTML = `<div class="grid">${byPrice.slice(0, 10).map((c, i) => tileHtml(c, `<span class="rank">${i + 1}</span>`)).join('')}</div>`;
+  document.getElementById('oddsBox').outerHTML = `<table class="odds"><tr><th>레어도</th><th>종류</th><th>한 팩에서</th></tr>
+    ${Object.keys(TIERS).filter(t => tiers[t]).map(t => `<tr><td>${TIERS[t].ko} (${TIERS[t].ab})</td><td>${tiers[t].length}종</td><td>${TIERS[t].rate ? '약 1/' + Math.round(1 / TIERS[t].rate) : t === 'promo' ? '팩 미수록' : '매 팩'}</td></tr>`).join('')}</table>`;
+  grid.innerHTML = byPrice.map(c => tileHtml(c)).join('');
+  btn.disabled = false; btn.textContent = '🎁 이 팩 개봉하기';
+  btn.onclick = () => confirmOpen(set, tiers, packKr);
 }
 const avg = arr => arr && arr.length ? arr.reduce((s, c) => s + (priceOf(c).krw || 0), 0) / arr.length : 0;
 function expectedValue(tiers) {
@@ -615,7 +693,7 @@ function expectedValue(tiers) {
 function confirmOpen(set, tiers, packKr) {
   const modal = document.getElementById('modal');
   modal.innerHTML = `<div class="card" style="text-align:center">
-    ${imgTag(set.images.logo, set.name)}
+    ${logoTag(set)}
     <h2 style="margin-top:10px">${esc(set.name)} 팩을 개봉할까요?</h2>
     <p class="muted">가상 개봉이라 실제 결제는 없어요.<br>실제로 샀다면 ${won(packKr)}이에요.</p>
     <label class="muted" style="display:block;margin-bottom:12px"><input type="checkbox" id="quickOpen" ${store.quick ? 'checked' : ''}> ⚡ 빠르게 보기 (연출 없이 결과만)</label>
@@ -657,7 +735,7 @@ function openPack(set, tiers, packKr) {
   document.body.style.overflow = 'hidden';
   if (store.quick) return showSummary();
   stage.innerHTML = `<div class="counter">${esc(set.name)} · 0 / ${pack.length}</div>
-    <div class="packart" id="packArt">${imgTag(set.images.logo, set.name)}<div style="margin-top:14px;font-weight:700">탭해서 뜯기</div></div>
+    <div class="packart" id="packArt">${logoTag(set)}<div style="margin-top:14px;font-weight:700">탭해서 뜯기</div></div>
     <div class="stageBtns"><button class="ghost" id="skipAll">결과 바로 보기</button></div>`;
   const art = document.getElementById('packArt');
   art.onclick = () => {
@@ -709,7 +787,7 @@ async function renderSets() {
   const sets = (await allSets()).filter(s => !/promo/i.test(s.name));
   view.innerHTML = `<div class="card"><h2>📦 팩 둘러보기</h2><p class="muted" style="margin:0">최신순 · ⭐ 표시는 일본·한국판 대응 팩 정보가 있는 팩이에요.</p></div>
     <div class="grid">${sets.map(s => `<button class="tile" data-set="${esc(s.id)}" style="text-align:center">
-      <div style="height:70px;display:flex;align-items:center;justify-content:center">${imgTag(s.images.logo, s.name).replace('<img', '<img style="max-height:64px;max-width:100%;aspect-ratio:auto;background:none"')}</div>
+      <div style="height:70px;display:flex;align-items:center;justify-content:center">${logoTag(s)}</div>
       <div class="nm">${REGION[s.id] ? '⭐ ' : ''}${esc(s.name)}</div><div class="muted" style="font-size:.78rem">${esc(s.total)}종</div></button>`).join('')}</div>`;
 }
 
