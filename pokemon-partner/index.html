@@ -69,13 +69,31 @@ button:disabled { opacity: .45; cursor: default; }
 .wave { position: absolute; left: -50%; width: 200%; height: 120px; bottom: -40px; border-radius: 45%; background: var(--sea3); opacity: .55; animation: roll 9s linear infinite; }
 .wave.w2 { bottom: -60px; opacity: .8; animation-duration: 13s; animation-direction: reverse; }
 @keyframes roll { from { transform: translateX(0) rotate(0); } to { transform: translateX(25%) rotate(360deg); } }
-.rider { position: absolute; left: 50%; bottom: 38px; width: 96px; margin-left: -48px; animation: bob 3.2s ease-in-out infinite; }
-@keyframes bob { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-18px) rotate(4deg); } }
+.rider { position: absolute; left: 50%; bottom: 38px; width: 96px; margin-left: -48px; animation: bob 10s ease-in-out infinite; }
+@keyframes bob { 0% { transform: translateY(0) rotate(-4deg); } 40% { transform: translateY(-22px) rotate(4deg); } 100% { transform: translateY(0) rotate(-4deg); } }
 .clock { position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-size: 2rem; font-weight: 700; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.35); font-variant-numeric: tabular-nums; }
 .prompt { min-height: 3.2em; margin: 12px 0; font-size: 1rem; text-align: center; }
-@media (prefers-reduced-motion: reduce) { .wave, .rider { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .wave, .rider, .help.alert a.hot { animation: none; } .breath i { animation-duration: 10s; } .bar > i, .cbar i { transition: none; } }
 
-.vas { width: 100%; accent-color: var(--accent); }
+.vas { width: 100%; -webkit-appearance: none; appearance: none; height: 12px; border-radius: 99px; margin: 10px 0 4px;
+  background: linear-gradient(90deg, #2e9e6a 0 36%, #d9a400 36% 64%, #e8664f 64% 82%, #d12f2f 82%); }
+.vas::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 50%; background: var(--card); border: 5px solid var(--thumb, var(--accent)); cursor: pointer; }
+.vas::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--card); border: 5px solid var(--thumb, var(--accent)); cursor: pointer; }
+.vas-val small { font-size: .9rem; margin-left: 4px; }
+.cmp { display: grid; grid-template-columns: 2.6em 1fr 1.6em; gap: 8px; align-items: center; font-size: .85rem; margin: 4px 0; }
+.cbar { height: 12px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.cbar i { display: block; height: 100%; border-radius: 99px; transition: width .3s; }
+.top { display: flex; align-items: center; gap: 8px; } .top h1 { flex: 1; }
+button.icon { padding: 8px 10px; flex: none; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.next img { width: 40px; height: 40px; object-fit: contain; filter: brightness(0) opacity(.45); vertical-align: middle; }
+/* 호흡 링: 4초 들이쉬기 · 6초 내쉬기 (10초 주기), 파트너 흔들림과 같은 주기 */
+.breath { position: absolute; right: 12px; top: 12px; width: 58px; height: 58px; display: grid; place-items: center; }
+.breath i { position: absolute; inset: 0; border-radius: 50%; border: 3px solid rgba(255,255,255,.9); animation: breathe 10s ease-in-out infinite; }
+.breath span { color: #fff; font-size: .72rem; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.breath span::after { content: "들이쉬기"; animation: breathTxt 10s step-end infinite; }
+@keyframes breathe { 0% { transform: scale(.55); } 40% { transform: scale(1); } 100% { transform: scale(.55); } }
+@keyframes breathTxt { 0% { content: "들이쉬기"; } 40% { content: "내쉬기"; } }
 .vas-val { font-size: 1.6rem; font-weight: 700; text-align: center; }
 .scale { display: flex; justify-content: space-between; color: var(--muted); font-size: .78rem; }
 
@@ -97,7 +115,7 @@ button:disabled { opacity: .45; cursor: default; }
 </head>
 <body>
 <main>
-  <h1>🌊 포켓몬 파도타기 파트너</h1>
+  <div class="top"><h1>🌊 포켓몬 파도타기 파트너</h1><button class="ghost icon" id="themeBtn" aria-label="테마">🌓</button></div>
   <p class="sub">충동은 파도처럼 올라왔다가 지나가요. 파트너와 함께 넘어가요.</p>
 
   <!-- 1. 파트너 고르기 -->
@@ -155,7 +173,7 @@ button:disabled { opacity: .45; cursor: default; }
     <div class="card" id="vasBefore">
       <h2>지금 충동은 얼마나 센가요?</h2>
       <div class="vas-val" id="vbVal">5</div>
-      <input type="range" class="vas" id="vb" min="0" max="10" value="5">
+      <input type="range" class="vas" id="vb" min="0" max="10" value="5" aria-label="지금 충동 세기">
       <div class="scale"><span>0 잔잔함</span><span>10 폭풍</span></div>
       <p class="meta">몇 분 동안 파도를 탈까요?</p>
       <div class="row">
@@ -167,7 +185,8 @@ button:disabled { opacity: .45; cursor: default; }
 
     <div class="card hidden" id="riding">
       <div class="sea">
-        <div class="clock" id="clock">5:00</div>
+        <div class="clock" id="clock" role="timer" aria-live="off">5:00</div>
+        <div class="breath" id="breath" aria-hidden="true"><i></i><span></span></div>
         <div class="wave"></div><div class="wave w2"></div>
         <img class="rider" id="rider" alt="">
       </div>
@@ -178,14 +197,15 @@ button:disabled { opacity: .45; cursor: default; }
     <div class="card hidden" id="vasAfter">
       <h2>파도를 넘었어요. 지금은 어떤가요?</h2>
       <div class="vas-val" id="vaVal">5</div>
-      <input type="range" class="vas" id="va" min="0" max="10" value="5">
+      <input type="range" class="vas" id="va" min="0" max="10" value="5" aria-label="파도타기 후 충동 세기">
       <div class="scale"><span>0 잔잔함</span><span>10 폭풍</span></div>
+      <div id="compare" style="margin-top:12px"></div>
       <div class="row" style="margin-top:12px"><button id="finishSurf">기록하기</button></div>
     </div>
   </section>
 </main>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <nav class="help" id="help">
   <a class="hot" href="tel:1336">📞 1336 도박문제 상담</a>
@@ -297,7 +317,10 @@ function render() {
   $('pName').textContent = st.name;
   const base = st.at, goal = nx ? nx.at : Math.max(base + 100, S.friendship);
   $('pBar').style.width = (nx ? Math.min(100, (S.friendship - base) / (goal - base) * 100) : 100) + '%';
-  $('pMeta').textContent = nx ? `친밀도 ${S.friendship} · 다음 진화까지 ${nx.at - S.friendship}` : `친밀도 ${S.friendship} · 최고의 파트너`;
+  const near = nx && (nx.at - S.friendship) <= (nx.at - base) * .3;
+  $('pMeta').innerHTML = nx ? `친밀도 ${S.friendship} · 다음 진화까지 <b>${nx.at - S.friendship}</b>` +
+      (near ? ` <span class="next" title="곧 만날 모습">→ <img src="${ART(nx.id)}" alt="다음 모습 실루엣"> 곧 진화해요!</span>` : '')
+    : `친밀도 ${S.friendship} · 최고의 파트너`;
   const dayN = Object.keys(S.days).length;
   $('pQuote').textContent = `“${p.lines[dayN % p.lines.length]}”`;
 
@@ -326,59 +349,113 @@ $('slip').onclick = () => {
   addLog('오늘은 미끄러졌어요. 그래도 솔직하게 기록했어요');
   save(); render();
   toast(`${stageOf(p, S.friendship).name}은(는) 여전히 곁에 있어요. 필요하면 1336에 전화해 보세요.`);
-  $('help').classList.add('alert');
+  $('help').dataset.slip = '1'; $('help').classList.add('alert');
 };
 $('reset').onclick = () => {
   if (confirm('파트너를 다시 고를까요? (기록은 남고 친밀도는 새로 시작해요)')) { S.partner = null; save(); render(); }
 };
 
 // ---- 파도타기 ----
-let timer = null, remain = 0, total = 0, vasBefore = 5;
-$('vb').oninput = e => $('vbVal').textContent = e.target.value;
-$('va').oninput = e => $('vaVal').textContent = e.target.value;
+// 타이머는 "마감 시각" 기준으로 계산하고 세션을 저장한다.
+// → 화면 잠금·백그라운드 스로틀에도 시간이 정확하고, 앱을 나갔다 와도 이어진다.
+let timer = null, wakeLock = null;
+const VAS_BANDS = [[3, '잔잔', '#2e9e6a'], [6, '너울', '#d9a400'], [8, '높음', '#e8664f'], [10, '위험', '#d12f2f']];
+const band = v => VAS_BANDS.find(b => v <= b[0]);
+function paintVas(input, out) {
+  const v = +input.value, [, label, color] = band(v);
+  out.innerHTML = `${v} <small style="color:${color}">${label}</small>`;
+  input.setAttribute('aria-valuetext', `충동 ${v}, ${label}`);
+  input.style.setProperty('--thumb', color);
+  $('help').classList.toggle('alert', v >= 9 || $('help').dataset.slip === '1');
+}
+$('vb').oninput = () => paintVas($('vb'), $('vbVal'));
+$('va').oninput = () => { paintVas($('va'), $('vaVal')); paintCompare(); };
 $('goSurf').onclick = () => {
   $('vasBefore').classList.remove('hidden'); $('riding').classList.add('hidden'); $('vasAfter').classList.add('hidden');
+  paintVas($('vb'), $('vbVal'));
   show('surf');
 };
 document.querySelectorAll('[data-min]').forEach(b => b.onclick = () => startSurf(+b.dataset.min));
 
 function fmt(s) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+const remainSec = () => Math.max(0, Math.ceil((S.surf.deadline - Date.now()) / 1000));
+async function keepAwake() {
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { wakeLock = null; }
+}
+function releaseAwake() { try { wakeLock && wakeLock.release(); } catch {} wakeLock = null; }
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && S.surf?.phase === 'riding') { keepAwake(); tick(); }
+});
+
 function startSurf(min) {
-  vasBefore = +$('vb').value;
-  total = remain = min * 60;
+  S.surf = { phase: 'riding', total: min * 60, deadline: Date.now() + min * 60000, vasBefore: +$('vb').value };
+  save();
+  showRiding();
+}
+function showRiding() {
   const st = stageOf(PARTNERS[S.partner], S.friendship);
   $('rider').src = ART(st.id); $('rider').alt = st.name; imgFallback($('rider'), st.name);
-  $('vasBefore').classList.add('hidden'); $('riding').classList.remove('hidden');
+  $('vasBefore').classList.add('hidden'); $('vasAfter').classList.add('hidden'); $('riding').classList.remove('hidden');
+  show('surf');
+  keepAwake();
+  clearInterval(timer);
   tick();
-  timer = setInterval(tick, 1000);
+  timer = setInterval(tick, 500);
 }
 function tick() {
-  $('clock').textContent = fmt(remain);
-  const elapsed = total - remain;
-  $('prompt').textContent = PROMPTS[Math.floor(elapsed / 20) % PROMPTS.length];
-  if (remain <= 0) return endSurf();
-  remain--;
+  if (!S.surf || S.surf.phase !== 'riding') return;
+  const r = remainSec();
+  $('clock').textContent = fmt(r);
+  $('prompt').textContent = PROMPTS[Math.floor((S.surf.total - r) / 20) % PROMPTS.length];
+  if (r <= 0) endSurf();
 }
 function endSurf() {
-  clearInterval(timer); timer = null;
-  $('va').value = vasBefore; $('vaVal').textContent = vasBefore;
-  $('riding').classList.add('hidden'); $('vasAfter').classList.remove('hidden');
+  clearInterval(timer); timer = null; releaseAwake();
+  S.surf.phase = 'after'; S.surf.used = S.surf.total - remainSec(); save();
+  showAfter();
 }
-$('stopSurf').onclick = endSurf;
+function showAfter() {
+  $('va').value = S.surf.vasBefore;
+  paintVas($('va'), $('vaVal')); paintCompare();
+  $('riding').classList.add('hidden'); $('vasBefore').classList.add('hidden'); $('vasAfter').classList.remove('hidden');
+  show('surf');
+}
+// 전·후 파도 높이를 나란히. 평가하지 않고 변화만 말한다.
+function paintCompare() {
+  const b = S.surf.vasBefore, a = +$('va').value, d = b - a;
+  const bar = (v, lab) => `<div class="cmp"><span>${lab}</span><div class="cbar"><i style="width:${v * 10}%;background:${band(v)[2]}"></i></div><b>${v}</b></div>`;
+  $('compare').innerHTML = bar(b, '시작') + bar(a, '지금') +
+    `<p class="meta" style="margin:6px 0 0">${d > 0 ? `파도가 ${d}만큼 내려갔어요.` : d < 0 ? `파도가 ${-d}만큼 올라갔어요. 지금 느낌 그대로 괜찮아요.` : '파도 높이가 그대로예요. 그대로 괜찮아요.'}</p>`;
+}
+$('stopSurf').onclick = () => {
+  if (confirm('파도타기를 여기서 마칠까요?')) endSurf();
+};
 $('finishSurf').onclick = () => {
-  const after = +$('va').value;
-  const full = remain <= 0;
-  const mins = Math.max(1, Math.round((total - remain) / 60));
-  const reason = `파도타기 ${mins}분 · 충동 ${vasBefore} → ${after}`;
+  const after = +$('va').value, sv = S.surf;
+  const full = sv.used >= sv.total;
+  const mins = Math.max(1, Math.round(sv.used / 60));
+  S.surf = null;
   if (after >= 9) {
     // 임상 안전 가이드: 사후 VAS ≥ 9 → 1336 연결 강조
     $('help').classList.add('alert');
     alert('아직 파도가 아주 높네요. 혼자 버티지 않아도 돼요.\n지금 1336(도박문제 상담)에 전화하면 24시간 도움을 받을 수 있어요.');
   }
-  gain(full ? PTS.surf : PTS.surfPartial, reason);
+  gain(full ? PTS.surf : PTS.surfPartial, `파도타기 ${mins}분 · 충동 ${sv.vasBefore} → ${after}`);
 };
 
+// ---- 테마 (자동 → 라이트 → 다크) ----
+const THEMES = ['auto', 'light', 'dark'], THEME_ICON = { auto: '🌓', light: '☀️', dark: '🌙' };
+function applyTheme() {
+  const t = S.theme || 'auto';
+  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  $('themeBtn').textContent = THEME_ICON[t];
+  $('themeBtn').setAttribute('aria-label', `테마: ${{ auto: '자동', light: '라이트', dark: '다크' }[t]}`);
+}
+$('themeBtn').onclick = () => { S.theme = THEMES[(THEMES.indexOf(S.theme || 'auto') + 1) % 3]; save(); applyTheme(); };
+applyTheme();
+
 render();
+if (S.partner && S.surf) S.surf.phase === 'riding' && remainSec() > 0 ? showRiding() : (S.surf.phase === 'riding' && (S.surf.used = S.surf.total, S.surf.phase = 'after', save()), showAfter());
 </script>
 </body>
 </html>

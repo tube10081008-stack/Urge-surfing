@@ -10,6 +10,8 @@
   --bg: #f3f5fa; --card: #ffffff; --ink: #17202b; --muted: #5f6b7a; --line: #dfe4ec;
   --accent: #e3350d; --accent-ink: #ffffff; --chip: #eef1f6;
   --gold: #d9a400; --ir: #3f8cff; --sir: #c04bff; --hyper: #ffb300;
+  /* 개봉·스캔 연출 무대는 테마와 무관하게 어둡게 고정 (의도된 선택) */
+  --fx-bg: rgba(5,8,14,.94); --fx-tile: #161c26; --fx-line: #2a3345; --fx-btn: #263043; --fx-muted: #aab;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -38,9 +40,31 @@ a { color: var(--accent); }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .hidden { display: none !important; }
 .chip { display: inline-block; background: var(--chip); border-radius: 99px; padding: 2px 9px; font-size: .78rem; margin: 2px 4px 2px 0; }
-.tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-.tabs button { background: var(--chip); color: var(--ink); font-weight: 500; }
+.tabs { display: flex; gap: 6px; margin: 0 -16px 12px; padding: 8px 16px; position: sticky; top: 0; z-index: 10; background: var(--bg); }
+.tabs button { background: var(--chip); color: var(--ink); font-weight: 500; flex: 1; white-space: nowrap; }
 .tabs button.on { background: var(--ink); color: var(--bg); }
+@media (max-width: 620px) {
+  .tabs { position: fixed; top: auto; bottom: 0; left: 0; right: 0; margin: 0; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--card); }
+  .tabs button { padding: 10px 6px; font-size: .88rem; }
+  main { padding-bottom: 88px; } footer { padding-bottom: 90px; }
+}
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.tile:focus-visible { outline-offset: 0; }
+/* 스켈레톤 */
+.skel { cursor: default; pointer-events: none; }
+.skel i, .skel b { display: block; border-radius: 8px; background: linear-gradient(90deg, var(--chip) 25%, var(--line) 50%, var(--chip) 75%); background-size: 200% 100%; animation: shimmer 1.3s infinite linear; }
+.skel i { aspect-ratio: 63/88; } .skel b { height: 12px; margin-top: 8px; } .skel b + b { width: 60%; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+/* 시세 칩 */
+.pchips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x mandatory; }
+.pchip { flex: 0 0 auto; min-width: 140px; scroll-snap-align: start; background: var(--chip); border-radius: 12px; padding: 8px 12px; }
+.pchip .v { font-size: 1.15rem; font-weight: 700; display: block; }
+.src { font-size: .7rem; padding: 1px 7px; border-radius: 99px; font-weight: 700; }
+.src.auto { background: #2e9e6a22; color: #2e9e6a; } .src.mine { background: #3f8cff22; color: #3f8cff; } .src.none { background: var(--line); color: var(--muted); }
+details.mine summary { cursor: pointer; color: var(--muted); font-size: .86rem; margin-top: 8px; }
+.sortbar { display: flex; gap: 6px; margin: 0 0 10px; }
+.sortbar button { padding: 6px 12px; font-size: .85rem; background: var(--chip); color: var(--ink); font-weight: 500; }
+.sortbar button.on { background: var(--ink); color: var(--bg); }
 
 /* search */
 .search { display: flex; gap: 8px; }
@@ -52,6 +76,9 @@ a { color: var(--accent); }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px; cursor: pointer; text-align: left; color: var(--ink); font-weight: 400; position: relative; }
 .tile:hover { border-color: var(--accent); }
+.tile:active { transform: scale(.98); }
+.tile .pbadge { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,.78); color: #fff; font-size: .8rem; font-weight: 700; padding: 3px 8px; border-radius: 99px; opacity: 0; transition: opacity .15s; }
+@media (hover: hover) { .tile:hover .pbadge { opacity: 1; } }
 .tile img, .cimg { width: 100%; aspect-ratio: 63/88; object-fit: contain; border-radius: 8px; background: var(--chip); display: block; }
 .tile .nm { font-weight: 600; font-size: .9rem; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tile .pr { font-size: .85rem; }
@@ -72,7 +99,7 @@ th { color: var(--muted); font-weight: 500; white-space: nowrap; }
 .odds td:last-child, .odds th:last-child { text-align: right; }
 
 /* opening */
-#stage { position: fixed; inset: 0; background: rgba(5,8,14,.94); z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 16px; color: #fff; overflow-y: auto; }
+#stage { position: fixed; inset: 0; background: var(--fx-bg); z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 16px; color: #fff; overflow-y: auto; }
 #stage > :first-child { margin-top: auto; } #stage > :last-child { margin-bottom: auto; }
 .packart { width: 200px; height: 300px; border-radius: 14px; background: linear-gradient(135deg, #e3350d, #7a1a8f 55%, #1d3fbf); display: flex; align-items: center; justify-content: center; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.5); cursor: pointer; position: relative; overflow: hidden; }
 .packart img { max-width: 160px; max-height: 80px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
@@ -102,10 +129,10 @@ th { color: var(--muted); font-weight: 500; white-space: nowrap; }
 .summary { width: 100%; max-width: 820px; }
 .summary .grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
 .summary .tile .nm { font-size: .8rem; }
-.summary .tile { background: #161c26; color: #fff; border-color: #2a3345; cursor: default; }
+.summary .tile { background: var(--fx-tile); color: #fff; border-color: var(--fx-line); cursor: default; }
 .summary .tile.best { border: 2px solid var(--hyper); box-shadow: 0 0 20px var(--hyper); }
 .stageBtns { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
-.stageBtns .ghost { background: #263043; color: #fff; }
+.stageBtns .ghost { background: var(--fx-btn); color: #fff; }
 @media (prefers-reduced-motion: reduce) { .packart::after, .glow-sir .face.front, .glow-hyper .face.front { animation: none; } .flip { transition: none; } }
 
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -173,10 +200,10 @@ footer a { color: var(--muted); }
 .evInfo a { color: #9fc3ff; }
 .evInfo td, .evInfo th { border-color: rgba(255,255,255,.12); color: #e6e9f5; }
 .evBtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
-.evBtns .ghost { background: #263043; color: #fff; }
+.evBtns .ghost { background: var(--fx-btn); color: #fff; }
 .shake { animation: shake .45s; }
 #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
-@media (prefers-reduced-motion: reduce) { .rays, .laser, .cover .hint { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .rays, .laser, .cover .hint, .skel i, .skel b, .evCard, .hitbanner, .evBanner { animation: none !important; } .tile:active { transform: none; } }
 </style>
 </head>
 <body>
@@ -184,16 +211,16 @@ footer a { color: var(--muted); }
   <header>
     <h1 id="homeLink">🃏 포켓몬 카드 팩 도감</h1>
     <button class="ghost" id="binderBtn">📒 내 바인더</button>
-    <button class="ghost" id="settingsBtn">⚙️</button>
+    <button class="ghost" id="settingsBtn" aria-label="설정">⚙️</button>
   </header>
 
-  <div class="tabs" id="tabs">
-    <button data-tab="search" class="on">포켓몬으로 찾기</button>
-    <button data-tab="sets">팩 둘러보기</button>
-    <button data-tab="scan">📷 카드 스캔</button>
-  </div>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="메뉴">
+    <button data-tab="search" class="on" role="tab" aria-selected="true" aria-controls="view">🔎 포켓몬</button>
+    <button data-tab="sets" role="tab" aria-selected="false" aria-controls="view">📦 팩</button>
+    <button data-tab="scan" role="tab" aria-selected="false" aria-controls="view">📷 스캔</button>
+  </nav>
 
-  <section id="view"></section>
+  <section id="view" role="tabpanel" aria-live="polite"></section>
 </main>
 
 <footer>
@@ -217,7 +244,7 @@ const NAMES = [[1,"Bulbasaur","이상해씨","フシギダネ"],[2,"Ivysaur","�
 // ================= 설정·저장 =================
 const API = 'https://api.tcgdex.net/v2/en';
 const LS = 'pkm-card-pack-v1';
-const DEF = { usdKrw: 1400, eurKrw: 1600, jpyKrw: 9.5, region: 'kr' };
+const DEF = { theme: 'auto', usdKrw: 1400, eurKrw: 1600, jpyKrw: 9.5, region: 'kr' };
 function loadStore() { try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch { return {}; } }
 let store = Object.assign({ settings: { ...DEF }, binder: {}, opened: 0, spentIfReal: 0, myPrices: {}, collection: {}, sound: true }, loadStore());
 store.settings = Object.assign({ ...DEF }, store.settings);
@@ -408,12 +435,13 @@ async function allSets() { return (await api('/sets')).filter(x => !isPocket(x.i
 
 // ================= 화면 공통 =================
 const view = document.getElementById('view');
-const status = (msg) => view.innerHTML = `<div class="status">${msg}</div>`;
+const skeleton = n => `<div class="grid" aria-hidden="true">${'<div class="tile skel"><i></i><b></b><b></b></div>'.repeat(n)}</div>`;
+const status = (msg, skel = 0) => view.innerHTML = `<div class="status">${msg}</div>${skeleton(skel)}`;
 const fail = (e) => status(`불러오지 못했어요 😢<br><span class="muted">${esc(e.message)} · 잠시 뒤 다시 시도해주세요.</span>`);
 function imgTag(src, alt, cls = '') { return `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" loading="lazy" onerror="this.style.visibility='hidden'">`; }
 function tileHtml(c, extra = '') {
   const p = priceOf(c), t = tierOf(c.rarity);
-  return `<button class="tile" data-card="${esc(c.id)}">${extra}${imgTag(c.images.small, c.name)}
+  return `<button class="tile" data-card="${esc(c.id)}">${extra}${p.krw != null ? `<span class="pbadge">${won(p.krw)}</span>` : ''}${imgTag(c.images.small, c.name)}
     <div class="nm">${esc(c.name)}</div>
     <div class="muted" style="font-size:.78rem">${esc(c.set.name)} · ${TIERS[t].ab}</div>
     <div class="pr"><b>${won(p.krw)}</b> <span class="muted">${usd(p.usd)}</span></div></button>`;
@@ -431,8 +459,8 @@ function go(page, arg) { location.hash = page + (arg != null ? '/' + encodeURICo
 async function route() {
   const [page, raw] = location.hash.slice(1).split('/');
   const arg = raw ? decodeURIComponent(raw) : '';
-  const tab = page === 'sets' || page === 'scan' ? page : 'search';
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  const tab = { sets: 'sets', set: 'sets', scan: 'scan', binder: '' }[page] ?? 'search';
+  document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.setAttribute('aria-selected', b.dataset.tab === tab); });
   if (page !== 'scan') stopCamera();
   window.scrollTo(0, 0);
   try {
@@ -468,7 +496,7 @@ async function renderSearch(q) {
   const sp = findSpecies(q);
   const out = document.getElementById('results');
   if (!sp) { out.innerHTML = `<div class="status">"${esc(q)}"을(를) 찾지 못했어요.</div>`; return; }
-  out.innerHTML = `<div class="status">${esc(sp.ko)} 카드 불러오는 중…</div>`;
+  out.innerHTML = `<div class="status">${esc(sp.ko)} 카드 불러오는 중…</div>${skeleton(8)}`;
   const cards = remember(await cardsOfSpecies(sp));
   cards.sort((a, b) => (priceOf(b).krw ?? -1) - (priceOf(a).krw ?? -1));
   out.innerHTML = `<div class="card"><h2>${esc(sp.ko)} <span class="muted">${esc(sp.en)} · ${esc(sp.ja)}</span></h2>
@@ -491,26 +519,22 @@ async function renderCard(id) {
       <h2>${esc(c.name)} ${sp ? `<span class="muted">${esc(sp.ko)} · ${esc(sp.ja)}</span>` : ''}</h2>
       <div><span class="chip">${esc(c.rarity || '—')}</span><span class="chip">${TIERS[t].ko} (${ab})</span><span class="chip">#${esc(c.number)}/${esc(c.set.printedTotal)}</span></div>
       <h3>💰 시세</h3>
-      <table>
-        <tr><th>🇺🇸 영문판</th><td><span class="big">${won(p.krw)}</span><br><span class="muted">TCGplayer ${usd(p.usd)}${p.variant ? ' (' + esc(p.variant) + ')' : ''} · Cardmarket ${eur(p.eur)}</span></td></tr>
-        <tr><th>🇯🇵 일본판</th><td>${my.jp != null ? `<b>${yen(my.jp)}</b> (${won(my.jp * S().jpyKrw)}) · ` : ''}
-          <a href="https://snkrdunk.com/search?keywords=${jpQ}" target="_blank" rel="noopener">스니덩</a> ·
-          <a href="https://www.cardrush-pokemon.jp/product-list?keyword=${jpQ}" target="_blank" rel="noopener">카드러시</a> ·
-          <a href="https://yuyu-tei.jp/sell/poc/s/search?search_word=${jpQ}" target="_blank" rel="noopener">유유테이</a>
-          <div class="row" style="margin-top:4px"><input class="priceIn" type="number" min="0" placeholder="본 가격 ¥" data-my="jp" value="${my.jp ?? ''}"></div></td></tr>
-        <tr><th>🇰🇷 한국판</th><td>${my.kr != null ? `<b>${won(my.kr)}</b> · ` : ''}
-          <a href="https://m.bunjang.co.kr/search/products?q=${krQ}" target="_blank" rel="noopener">번개장터</a> ·
-          <a href="https://kream.co.kr/search?keyword=${krQ}" target="_blank" rel="noopener">KREAM</a> ·
-          <a href="https://search.shopping.naver.com/search/all?query=${krQ}" target="_blank" rel="noopener">네이버쇼핑</a>
-          <div class="row" style="margin-top:4px"><input class="priceIn" type="number" min="0" placeholder="본 가격 ₩" data-my="kr" value="${my.kr ?? ''}"></div></td></tr>
-      </table>
-      <p class="muted">일본·한국판 카드별 시세는 공개 API가 없어서, 링크로 확인한 가격을 적어두면 저장돼요. 일본·한국판은 카드 번호가 달라서 이름과 레어도(${ab})로 검색해요.</p>
+      <div class="pchips">
+        <div class="pchip">🇺🇸 영문판 <span class="src ${p.krw != null ? 'auto' : 'none'}">${p.krw != null ? '자동' : '없음'}</span><span class="v">${won(p.krw)}</span><span class="muted">${usd(p.usd)} · ${eur(p.eur)}</span></div>
+        <div class="pchip">🇯🇵 일본판 <span class="src ${my.jp != null ? 'mine' : 'none'}">${my.jp != null ? '내 입력' : '미입력'}</span><span class="v">${my.jp != null ? won(my.jp * S().jpyKrw) : '—'}</span><span class="muted">${my.jp != null ? yen(my.jp) : '링크에서 확인'}</span></div>
+        <div class="pchip">🇰🇷 한국판 <span class="src ${my.kr != null ? 'mine' : 'none'}">${my.kr != null ? '내 입력' : '미입력'}</span><span class="v">${my.kr != null ? won(my.kr) : '—'}</span><span class="muted">${my.kr != null ? '직접 확인한 가격' : '링크에서 확인'}</span></div>
+      </div>
+      <p class="muted" style="margin:8px 0 0">🇯🇵 <a href="https://snkrdunk.com/search?keywords=${jpQ}" target="_blank" rel="noopener">스니덩</a> · <a href="https://www.cardrush-pokemon.jp/product-list?keyword=${jpQ}" target="_blank" rel="noopener">카드러시</a> · <a href="https://yuyu-tei.jp/sell/poc/s/search?search_word=${jpQ}" target="_blank" rel="noopener">유유테이</a>
+        &nbsp; 🇰🇷 <a href="https://m.bunjang.co.kr/search/products?q=${krQ}" target="_blank" rel="noopener">번개장터</a> · <a href="https://kream.co.kr/search?keyword=${krQ}" target="_blank" rel="noopener">KREAM</a> · <a href="https://search.shopping.naver.com/search/all?query=${krQ}" target="_blank" rel="noopener">네이버쇼핑</a></p>
+      <details class="mine"${my.jp != null || my.kr != null ? ' open' : ''}><summary>내가 본 시세 입력 (일본·한국판은 공개 API가 없어요)</summary>
+        <div class="row" style="margin-top:6px"><input class="priceIn" type="number" min="0" placeholder="🇯🇵 ¥" aria-label="일본판 본 가격(엔)" data-my="jp" value="${my.jp ?? ''}"><input class="priceIn" type="number" min="0" placeholder="🇰🇷 ₩" aria-label="한국판 본 가격(원)" data-my="kr" value="${my.kr ?? ''}"></div>
+        <p class="muted" style="margin:4px 0 0">일본·한국판은 카드 번호가 달라서 이름과 레어도(${ab})로 검색해요.</p></details>
       <h3>📦 이 카드가 나오는 팩</h3>
       <div id="packBox"><div class="status">팩 정보 계산 중…</div></div>
     </div></div>`;
   view.querySelectorAll('[data-my]').forEach(inp => inp.onchange = () => {
     const k = 'card:' + c.id, v = inp.value === '' ? undefined : +inp.value;
-    store.myPrices[k] = Object.assign({}, store.myPrices[k], { [inp.dataset.my]: v }); save(); renderCard(id);
+    store.myPrices[k] = Object.assign({}, store.myPrices[k], { [inp.dataset.my]: v }); save(); setTimeout(() => renderCard(id));
   });
   const [set, setCards] = await Promise.all([setById(c.set.id), cardsOfSet(c.set.id).then(remember)]);
   const tierCount = setCards.filter(x => tierOf(x.rarity) === t).length || 1;
@@ -529,7 +553,7 @@ async function renderCard(id) {
 
 // ================= 3. 팩 정보 =================
 async function renderSet(id) {
-  status('팩 정보 불러오는 중…');
+  status('팩 정보 불러오는 중…', 8);
   const [set, cards] = await Promise.all([setById(id), cardsOfSet(id)]);
   remember(cards);
   const pp = packPrices(set), m = pp.map;
@@ -573,7 +597,7 @@ async function renderSet(id) {
   <div class="card"><h2>📚 이 팩에서 나올 수 있는 카드 (${cards.length})</h2><div class="grid">${byPrice.map(c => tileHtml(c)).join('')}</div></div>`;
   view.querySelectorAll('[data-pk]').forEach(inp => inp.onchange = () => {
     const k = 'pack:' + set.id, v = inp.value === '' ? undefined : +inp.value;
-    store.myPrices[k] = Object.assign({}, store.myPrices[k], { [inp.dataset.pk]: v }); save(); renderSet(id);
+    store.myPrices[k] = Object.assign({}, store.myPrices[k], { [inp.dataset.pk]: v }); save(); setTimeout(() => renderSet(id));
   });
   document.getElementById('regionSel').onchange = e => { S().region = e.target.value; save(); renderSet(id); };
   document.getElementById('openBtn').onclick = () => confirmOpen(set, tiers, packKr);
@@ -594,9 +618,11 @@ function confirmOpen(set, tiers, packKr) {
     ${imgTag(set.images.logo, set.name)}
     <h2 style="margin-top:10px">${esc(set.name)} 팩을 개봉할까요?</h2>
     <p class="muted">가상 개봉이라 실제 결제는 없어요.<br>실제로 샀다면 ${won(packKr)}이에요.</p>
+    <label class="muted" style="display:block;margin-bottom:12px"><input type="checkbox" id="quickOpen" ${store.quick ? 'checked' : ''}> ⚡ 빠르게 보기 (연출 없이 결과만)</label>
     <div class="row"><button class="ghost" id="noOpen" style="flex:1">아니요</button><button id="yesOpen" style="flex:1">개봉할게요!</button></div></div>`;
   modal.classList.remove('hidden');
   document.getElementById('noOpen').onclick = () => modal.classList.add('hidden');
+  document.getElementById('quickOpen').onchange = e => { store.quick = e.target.checked; save(); };
   document.getElementById('yesOpen').onclick = () => { modal.classList.add('hidden'); openPack(set, tiers, packKr); };
 }
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -623,13 +649,14 @@ function openPack(set, tiers, packKr) {
   store.opened++; store.spentIfReal += packKr || 0;
   for (const c of pack) {
     const b = store.binder[c.id] || { n: 0, name: c.name, img: c.images.small, set: c.set.name, rarity: c.rarity };
-    b.n++; store.binder[c.id] = b;
+    b.n++; b.krw = priceOf(c).krw; store.binder[c.id] = b;
   }
   save();
   const stage = document.getElementById('stage');
   stage.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
-  stage.innerHTML = `<div class="counter">${esc(set.name)}</div>
+  if (store.quick) return showSummary();
+  stage.innerHTML = `<div class="counter">${esc(set.name)} · 0 / ${pack.length}</div>
     <div class="packart" id="packArt">${imgTag(set.images.logo, set.name)}<div style="margin-top:14px;font-weight:700">탭해서 뜯기</div></div>
     <div class="stageBtns"><button class="ghost" id="skipAll">결과 바로 보기</button></div>`;
   const art = document.getElementById('packArt');
@@ -643,7 +670,7 @@ function openPack(set, tiers, packKr) {
   function showCard(i) {
     if (i >= pack.length) return showSummary();
     const c = pack[i], t = tierOf(c.rarity), g = TIERS[t].glow, p = priceOf(c);
-    stage.innerHTML = `<div class="counter">${i + 1} / ${pack.length}</div>
+    stage.innerHTML = `<div class="counter" aria-live="polite">${i + 1} / ${pack.length}</div>
       <div class="reveal ${g ? 'glow-' + g : ''}" id="rv"><div class="flip" id="fl">
         <div class="face back"></div><div class="face front">${imgTag(c.images.large || c.images.small, c.name)}</div></div></div>
       <div class="revealInfo" id="ri"><span class="muted">탭해서 뒤집기</span></div>
@@ -678,7 +705,7 @@ function openPack(set, tiers, packKr) {
 
 // ================= 5. 팩 목록 =================
 async function renderSets() {
-  status('팩 목록 불러오는 중…');
+  status('팩 목록 불러오는 중…', 12);
   const sets = (await allSets()).filter(s => !/promo/i.test(s.name));
   view.innerHTML = `<div class="card"><h2>📦 팩 둘러보기</h2><p class="muted" style="margin:0">최신순 · ⭐ 표시는 일본·한국판 대응 팩 정보가 있는 팩이에요.</p></div>
     <div class="grid">${sets.map(s => `<button class="tile" data-set="${esc(s.id)}" style="text-align:center">
@@ -688,19 +715,28 @@ async function renderSets() {
 
 // ================= 6. 바인더 =================
 function renderBinder() {
-  const items = Object.entries(store.binder).sort((a, b) => tierRank(b[1].rarity) - tierRank(a[1].rarity));
+  const by = store.binderSort || 'rarity';
+  const SORTS = { rarity: (a, b) => tierRank(b[1].rarity) - tierRank(a[1].rarity), price: (a, b) => (b[1].krw || 0) - (a[1].krw || 0), set: (a, b) => a[1].set.localeCompare(b[1].set) || tierRank(b[1].rarity) - tierRank(a[1].rarity) };
+  const items = Object.entries(store.binder).sort(SORTS[by]);
   view.innerHTML = `<div class="card"><h2>📒 내 바인더</h2>
     <p class="muted" style="margin:0">가상 개봉 ${store.opened}팩 · ${items.length}종 수집 · 실제로 샀다면 ${won(store.spentIfReal)} · 실제 지출 ₩0</p></div>
-    ${items.length ? `<div class="grid">${items.map(([id, b]) => `<button class="tile" data-card="${esc(id)}">${imgTag(b.img, b.name)}<div class="nm">${esc(b.name)}${b.n > 1 ? ` ×${b.n}` : ''}</div><div class="muted" style="font-size:.78rem">${esc(b.set)} · ${TIERS[tierOf(b.rarity)].ab}</div></button>`).join('')}</div>`
+    ${items.length ? `<div class="sortbar" role="group" aria-label="정렬">${[['rarity', '레어도'], ['price', '시세'], ['set', '팩']].map(([k, l]) => `<button data-sort="${k}" class="${by === k ? 'on' : ''}" aria-pressed="${by === k}">${l}</button>`).join('')}</div>` : ''}
+    ${items.length ? `<div class="grid">${items.map(([id, b]) => `<button class="tile" data-card="${esc(id)}">${imgTag(b.img, b.name)}<div class="nm">${esc(b.name)}${b.n > 1 ? ` ×${b.n}` : ''}</div><div class="muted" style="font-size:.78rem">${esc(b.set)} · ${TIERS[tierOf(b.rarity)].ab}</div>${b.krw != null ? `<div class="pr"><b>${won(b.krw)}</b></div>` : ''}</button>`).join('')}</div>`
       : '<div class="status">아직 카드가 없어요. 팩을 개봉해보세요!</div>'}
     <div class="card" style="margin-top:14px"><h2>📷 스캔한 실물 카드</h2>
     <p class="muted" style="margin:0">${Object.keys(store.collection).length}종 · 스캔 당시 시세 합계 <b>${won(Object.values(store.collection).reduce((s, c) => s + (c.krw || 0) * c.n, 0))}</b></p></div>
     ${Object.keys(store.collection).length ? `<div class="grid">${Object.entries(store.collection).sort((a, b) => (b[1].krw || 0) - (a[1].krw || 0)).map(([id, c]) => `<button class="tile" data-card="${esc(id)}">${imgTag(c.img, c.name)}<div class="nm">${esc(c.name)}${c.n > 1 ? ` ×${c.n}` : ''}</div><div class="muted" style="font-size:.78rem">${esc(c.set)} · ${esc(c.date)}</div><div class="pr"><b>${won(c.krw)}</b></div></button>`).join('')}</div>` : '<div class="status">스캔 탭에서 실물 카드를 찍어보세요.</div>'}`;
 }
+view.addEventListener('click', e => { const b = e.target.closest('[data-sort]'); if (b) { store.binderSort = b.dataset.sort; save(); renderBinder(); } });
 const ORDER = ['promo', 'common', 'uncommon', 'rare', 'ace', 'double', 'special', 'ultra', 'ir', 'sir', 'hyper'];
 const tierRank = r => ORDER.indexOf(tierOf(r));
 
 // ================= 설정 =================
+function applyTheme() {
+  const t = S().theme;
+  if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+}
+applyTheme();
 document.getElementById('settingsBtn').onclick = () => {
   const modal = document.getElementById('modal'), s = S();
   modal.innerHTML = `<div class="card"><h2>⚙️ 설정</h2>
@@ -708,11 +744,16 @@ document.getElementById('settingsBtn').onclick = () => {
       <tr><th>1 USD</th><td><input id="s1" type="number" value="${s.usdKrw}"> 원</td></tr>
       <tr><th>1 EUR</th><td><input id="s2" type="number" value="${s.eurKrw}"> 원</td></tr>
       <tr><th>1 JPY</th><td><input id="s3" type="number" step="0.01" value="${s.jpyKrw}"> 원</td></tr>
+      <tr><th>테마</th><td><div class="sortbar" style="margin:0" role="group" aria-label="테마">${[['auto', '🌓 자동'], ['light', '☀️ 라이트'], ['dark', '🌙 다크']].map(([k, l]) => `<button data-theme-opt="${k}" class="${s.theme === k ? 'on' : ''}" aria-pressed="${s.theme === k}">${l}</button>`).join('')}</div></td></tr>
     </table>
     <p class="muted">환율은 직접 맞춰주세요.</p>
     <div class="row"><button class="ghost" id="resetB" style="flex:1">바인더 비우기</button><button id="saveS" style="flex:1">저장</button></div></div>`;
   modal.classList.remove('hidden');
   modal.onclick = e => { if (e.target === modal) modal.classList.add('hidden'); };
+  modal.querySelectorAll('[data-theme-opt]').forEach(b => b.onclick = () => {
+    s.theme = b.dataset.themeOpt; save(); applyTheme();
+    modal.querySelectorAll('[data-theme-opt]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); });
+  });
   document.getElementById('saveS').onclick = () => {
     Object.assign(s, { usdKrw: +document.getElementById('s1').value || DEF.usdKrw, eurKrw: +document.getElementById('s2').value || DEF.eurKrw, jpyKrw: +document.getElementById('s3').value || DEF.jpyKrw });
     save(); cache.clear(); modal.classList.add('hidden'); route();
@@ -979,6 +1020,7 @@ const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch {} 
 
 // ---------- 컨페티 ----------
 function confetti(n, palette) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const cv = document.getElementById('confetti'), ctx = cv.getContext('2d');
   cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; ctx.scale(devicePixelRatio, devicePixelRatio);
   const ps = Array.from({ length: n }, () => ({ x: innerWidth / 2 + (Math.random() - .5) * 80, y: innerHeight * .45, vx: (Math.random() - .5) * 14, vy: -Math.random() * 16 - 4, s: 4 + Math.random() * 6, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: palette[Math.floor(Math.random() * palette.length)] }));
