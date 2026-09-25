@@ -748,15 +748,22 @@ async function renderSearch(q) {
   out.innerHTML = head + `
     <p class="muted" style="margin:0" id="ld" aria-live="polite">${ed} 카드 ${briefs.length}장 · 시세 불러오는 중 0/${briefs.length}</p>
     ${region === 'kr' ? '<p class="muted" style="margin:4px 0 0">한국판은 일본판과 카드가 같아 일본판 데이터로 보여줘요 (이름은 포켓몬 이름만 한국어로).</p>' : ''}</div>
-    <div class="grid" id="cg">${briefs.map(b => tileHtml(briefCard(b))).join('')}</div>`;
+    <div class="grid" id="cg">${briefs.filter(b => b.image).map(b => tileHtml(briefCard(b))).join('')}</div><div id="noImgBox"></div>`;
   bindRegionBar(() => renderSearch(q));
   const grid = document.getElementById('cg'), ld = document.getElementById('ld'), alive = () => grid.isConnected;
   const cards = remember(await fullCards(briefs, (c, n, t) => { patchTile(grid, c); ld.textContent = `${ed} 카드 ${t}장 · 시세 불러오는 중 ${n}/${t}`; }, alive));
   if (!alive()) return;
   cards.sort(byPriceDesc);
+  // 프로모 등 TCGdex에 이미지가 없는 카드는 맨 아래에 접어둔다
+  const withImg = cards.filter(c => c.images.small), noImg = cards.filter(c => !c.images.small);
   const failed = briefs.length - cards.length;
-  ld.textContent = `${ed} 카드 ${cards.length}장 · 비싼 순${failed ? ` · ${failed}장은 불러오지 못했어요` : ''}. 카드를 누르면 어느 팩에서 나오는지 보여줘요.`;
-  grid.innerHTML = cards.map((c, i) => tileHtml(c, i < 3 ? `<span class="rank">${['🥇', '🥈', '🥉'][i]}</span>` : '')).join('');
+  ld.textContent = `${ed} 카드 ${withImg.length}장 · 비싼 순${failed ? ` · ${failed}장은 불러오지 못했어요` : ''}. 카드를 누르면 어느 팩에서 나오는지 보여줘요.`;
+  grid.innerHTML = withImg.map((c, i) => tileHtml(c, i < 3 ? `<span class="rank">${['🥇', '🥈', '🥉'][i]}</span>` : '')).join('');
+  if (noImg.length) {
+    const box = document.getElementById('noImgBox');
+    box.innerHTML = `<button class="ghost" id="noImgBtn" style="width:100%;margin-top:12px">🖼️ 이미지 없는 카드 ${noImg.length}장 더 보기 <span class="muted">(프로모 등 · 이미지 데이터가 없어요)</span></button>`;
+    document.getElementById('noImgBtn').onclick = () => { box.innerHTML = `<div class="grid" style="margin-top:12px">${noImg.map(c => tileHtml(c)).join('')}</div>`; };
+  }
 }
 
 // ================= 2. 카드 상세 =================
@@ -882,7 +889,7 @@ async function renderSet(id) {
   ].join('');
   document.getElementById('oddsBox').outerHTML = `<p class="muted" style="margin:0 0 6px">${esc(spec.label)} 기준 · 커뮤니티 추정치</p><table class="odds"><tr><th>레어도</th><th>종류</th><th>한 팩에서</th></tr>
     ${Object.keys(TIERS).filter(t => tiers[t]).map(t => `<tr><td>${TIERS[t].ko} (${TIERS[t].ab})</td><td>${tiers[t].length}종</td><td>${rates[t] ? oddsText(rates[t]) : t === 'promo' ? '팩 미수록' : ['common', 'uncommon', 'rare'].includes(t) ? '매 팩' : '거의 없음'}</td></tr>`).join('')}${extraRows}</table>`;
-  grid.innerHTML = byPrice.map(c => tileHtml(c)).join('');
+  grid.innerHTML = [...byPrice.filter(c => c.images.small), ...byPrice.filter(c => !c.images.small)].map(c => tileHtml(c)).join('');
   btn.disabled = false; btn.textContent = '🎁 이 팩 개봉하기';
   btn.onclick = () => confirmOpen(set, tiers, packKr, spec);
 }
