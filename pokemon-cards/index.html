@@ -208,6 +208,14 @@ footer a { color: var(--muted); }
 @keyframes nudge { 50% { transform: translateY(-5px); } }
 .cover.gone { transition: transform .5s cubic-bezier(.3,.1,.3,1), opacity .5s; transform: rotateX(-110deg) translateY(-60px) !important; opacity: 0; pointer-events: none; }
 .cover.gone[data-from="top"] { transform: rotateX(110deg) translateY(60px) !important; }
+/* 걷어 올리기 */
+.cover.back, .flap.back { transition: clip-path .32s cubic-bezier(.3,1.4,.5,1), top .32s cubic-bezier(.3,1.4,.5,1), height .32s, opacity .32s; }
+.cover.peeled { transition: clip-path .4s ease-in; }
+.flap { position: absolute; left: 0; right: 0; height: 0; opacity: 0; pointer-events: none; border-radius: 14px 14px 4px 4px; z-index: 2;
+  background: linear-gradient(to top, #f7f7f7, #d9dde3 45%, #aeb4bd); box-shadow: 0 -10px 18px rgba(0,0,0,.45); }
+.flap[data-from="top"] { border-radius: 4px 4px 14px 14px; background: linear-gradient(to bottom, #f7f7f7, #d9dde3 45%, #aeb4bd); box-shadow: 0 10px 18px rgba(0,0,0,.45); }
+.flap.peeled { transition: opacity .3s; }
+.slip .flap { border-radius: 16px 16px 4px 4px; }
 .cover.back { transition: transform .35s cubic-bezier(.3,1.5,.5,1); }
 .evVerdict { margin-top: 16px; font-size: 1.7rem; font-weight: 900; text-align: center; min-height: 1.3em; }
 .evInfo { width: min(420px, 92vw); margin-top: 12px; background: rgba(255,255,255,.07); border-radius: 14px; padding: 12px 14px; font-size: .88rem; }
@@ -740,6 +748,8 @@ function openPack(set, tiers, packKr) {
   const stage = document.getElementById('stage');
   stage.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+  // 쪼는 동안 아래 카드가 바로 보이도록 10장 이미지를 미리 받아둔다
+  for (const c of pack) for (const u of [c.images.small, c.images.large]) if (u) { const im = new Image(); im.src = u; }
   if (store.quick) return showSummary();
   stage.innerHTML = `<div class="counter">${esc(set.name)} · 0 / ${pack.length}</div>
     <div class="packart" id="packArt">${logoTag(set)}<div style="margin-top:14px;font-weight:700">탭해서 뜯기</div></div>
@@ -757,15 +767,15 @@ function openPack(set, tiers, packKr) {
     const c = pack[i], t = tierOf(c.rarity), g = TIERS[t].glow, p = priceOf(c);
     stage.innerHTML = `<div class="counter" aria-live="polite">${i + 1} / ${pack.length}</div>
       <div class="reveal" id="rv">
-        <div class="under">${imgTag(c.images.large || c.images.small, c.name)}</div>
+        <div class="under"><img id="uimg" src="${esc(c.images.small || NOIMG)}" alt="${esc(c.name)}" onerror="this.onerror=null;this.src='${NOIMG}'"></div>
         <div class="cover cardback" id="cv"><span class="hint">⬆⬇ 위·아래를 잡고 살짝 들어보기 · 탭하면 바로</span></div>
       </div>
       <div class="revealInfo" id="ri"><span class="muted">위나 아래 끝을 잡고 조금씩 들어 올려보세요</span></div>
       <div class="stageBtns"><button class="ghost" id="skipAll">결과 바로 보기</button></div>`;
     document.getElementById('skipAll').onclick = () => showSummary();
     const rv = document.getElementById('rv');
+    if (c.images.large) { const hi = new Image(); hi.onload = () => { const u = document.getElementById('uimg'); if (u) u.src = hi.src; }; hi.src = c.images.large; }
     makeSqueeze(document.getElementById('cv'), {
-      full: rv.offsetHeight * .75,
       onTap: open => open(),
       onOpen: () => {
         if (g) { rv.classList.add('glow-' + g); buzz(g === 'hyper' || g === 'sir' ? [80, 50, 80, 50, 160] : [60]); }
@@ -1155,39 +1165,56 @@ function reveal(c, shot) {
   squeeze(c, p);
 }
 
-// 쪼기: 덮개의 아래쪽을 잡으면 위로, 위쪽을 잡으면 아래로 조금씩 들어 올린다.
-// openAt 넘게 들고 놓으면 완전히 열리고, 덜 들면 다시 내려앉는다. onTap이 있으면 탭으로 바로 열기.
-function makeSqueeze(cover, { full = 240, openAt = .72, onOpen, onTap } = {}) {
+// 쪼기: 덮개의 아래쪽을 잡으면 위로, 위쪽을 잡으면 아래로 걷어 올린다.
+// 끈 거리만큼 정확히 아래(실제 카드·가격)가 드러나고, 접힌 자리엔 말린 종이(flap)와 그림자가 생긴다.
+// openAt 넘게 걷고 놓으면 완전히 열리고, 덜 걷으면 다시 내려앉는다. onTap이 있으면 탭으로 바로 열기.
+function makeSqueeze(cover, { openAt = .72, dist, onOpen, onTap } = {}) {
+  const flap = document.createElement('div');
+  flap.className = 'flap';
+  cover.after(flap);
   let y0 = null, from = 'bottom', prog = 0, lastStep = 0, done = false, moved = false;
+  const H = () => cover.offsetHeight;
   const set = v => {
     prog = v;
+    const h = H(), d = v * h, f = Math.min(d * .5, h * .22);   // 드러난 높이, 말린 종이 높이
     cover.dataset.from = from;
-    cover.style.transformOrigin = from === 'bottom' ? '50% 0%' : '50% 100%';
-    cover.style.transform = `rotateX(${(from === 'bottom' ? -1 : 1) * v * 88}deg)`;
-    cover.style.setProperty('--shade', (v * .7).toFixed(2));
+    cover.style.clipPath = from === 'bottom' ? `inset(0 0 ${d}px 0 round 14px)` : `inset(${d}px 0 0 0 round 14px)`;
+    flap.dataset.from = from;
+    flap.style.height = f + 'px';
+    flap.style.top = (from === 'bottom' ? h - d - f : d) + 'px';
+    flap.style.opacity = d > 2 ? 1 : 0;
     const stepN = Math.floor(v * 12);
     if (stepN !== lastStep) { lastStep = stepN; sfx.tick(v); buzz(8 + stepN * 2); if (stepN && stepN % 3 === 0) sfx.beat(v); }
   };
-  const open = () => { if (done) return; done = true; cover.dataset.from = from; cover.classList.remove('back'); cover.classList.add('gone'); onOpen && onOpen(); };
+  const open = () => {
+    if (done) return; done = true;
+    cover.classList.remove('back'); flap.classList.remove('back');
+    cover.classList.add('peeled'); flap.classList.add('peeled');
+    cover.style.clipPath = from === 'bottom' ? 'inset(0 0 100% 0 round 14px)' : 'inset(100% 0 0 0 round 14px)';
+    flap.style.opacity = 0;
+    setTimeout(() => { cover.style.visibility = 'hidden'; }, 420);
+    onOpen && onOpen();
+  };
   cover.onpointerdown = e => {
     if (done) return;
     const r = cover.getBoundingClientRect();
     from = e.clientY - r.top > r.height / 2 ? 'bottom' : 'top';
     y0 = e.clientY; moved = false;
-    cover.classList.remove('back'); cover.setPointerCapture(e.pointerId);
+    cover.classList.remove('back'); flap.classList.remove('back');
+    cover.setPointerCapture(e.pointerId);
   };
   cover.onpointermove = e => {
     if (y0 == null || done) return;
     const raw = e.clientY - y0;
     if (Math.abs(raw) > 6 && !moved) { moved = true; cover.querySelector('.hint')?.remove(); }
     const d = Math.max(0, from === 'bottom' ? -raw : raw);
-    set(Math.min(1, Math.pow(d / full, 1.25)));   // 처음엔 뻑뻑하게
+    set(Math.min(1, Math.pow(d / (dist || H() * .9), 1.2)));   // 처음엔 뻑뻑하게
   };
   const release = () => {
     if (y0 == null || done) return; y0 = null;
     if (!moved && onTap) return onTap(open);
     if (prog >= openAt) open();
-    else { cover.classList.add('back'); set(0); }
+    else { cover.classList.add('back'); flap.classList.add('back'); set(0); }
   };
   cover.onpointerup = release; cover.onpointercancel = release;
   return { open };
@@ -1209,7 +1236,7 @@ function squeeze(c, p) {
       showEvMore(c, p);
     }, 750);
   };
-  makeSqueeze(cover, { onOpen: finish });
+  makeSqueeze(cover, { dist: 260, onOpen: finish });   // 가격 덮개는 낮아서 더 길게 끌어야 열리게
 }
 function countUp(el, target) {
   if (target == null) return;
