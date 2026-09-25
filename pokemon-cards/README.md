@@ -92,3 +92,10 @@
 - 까짐: 뒷면 파란 테두리의 네 모서리·네 변에서 하얗게 드러난 픽셀 비율.
 - 결과 화면에 찾은 선과 모서리 판정을 사진 위에 그려 보여준다. 저장 시 센터링 수치를 '지문'으로 함께 저장(입고 대조용).
 - 폰 촬영은 오차가 있으므로 보관 서비스에서는 입고 장비로 다시 잰 값이 공식 등급.
+
+## 💵 팩 시세 (절판 팩)
+- 절판 팩은 정가($4.49)보다 수~수십 배 비싸서, `PACK_MARKET`에 2026-09 웹 검색으로 조사한 **팩당 시세(USD)**를 넣어 정가 대신 쓴다.
+  - 박스 시세 ÷ 36 (일부는 판매 등록가 기준), 또는 낱팩 시세. 화면에 근거와 조사 시점을 표시.
+  - 조사 세트 19개: Guardians Rising, Burning Shadows, Crimson Invasion, Unbroken Bonds, Cosmic Eclipse, Sword & Shield, Darkness Ablaze, Vivid Voltage, Chilling Reign, Evolving Skies, Fusion Strike, Brilliant Stars, Lost Origin, Silver Tempest, Obsidian Flames, Paradox Rift, Temporal Forces, Twilight Masquerade, Prismatic Evolutions.
+- 우선순위: 내가 입력한 시세 → 조사 시세 → 정가. 조사 시세도 없는 2년 넘은 팩은 절판 경고.
+- 팩 정보 화면에 **박스 가격(36팩) 입력칸**: 유튜브·판매글의 박스 가격을 넣으면 팩 1개 시세로 환산해 저장.

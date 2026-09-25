@@ -462,13 +462,26 @@ const REGION = {
   'swsh12.5': { jp: ['VSTARユニバース'], jpT: 'ハイクラスパック', kr: ['VSTAR 유니버스'], krT: '하이클래스팩', jpIds: ['S12a'], jpOk: false }
 };
 const EN_MSRP = 4.49;
+// 영문판 팩 실거래 시세 (2026-09 웹 검색 조사 · 팩당 USD). box = 박스(36팩) 시세 ÷ 36, pack = 낱팩 시세, list = 판매 등록가 기준.
+// 절판 팩은 정가($4.49)의 수~수십 배라, 있으면 정가 대신 이 값을 쓴다. 시세가 계속 오르므로 참고용.
+const PACK_MARKET_DATE = '2026-09';
+const PACK_MARKET = {
+  sm2: { usd: 27.5, how: 'list', box: 990 },     sm3: { usd: 33.4, how: 'box', box: 1202.69 }, sm4: { usd: 17.8, how: 'list', box: 639.99 },
+  sm10: { usd: 30.7, how: 'box', box: 1105 },    sm12: { usd: 70.19, how: 'pack' },
+  swsh1: { usd: 19.3, how: 'box', box: 694.13 }, swsh3: { usd: 8.9, how: 'list', box: 320 },  swsh4: { usd: 5.8, how: 'list', box: 207.5 },
+  swsh6: { usd: 13.7, how: 'box', box: 494 },    swsh7: { usd: 45.04, how: 'pack' },          swsh8: { usd: 26.7, how: 'box', box: 960 },
+  swsh9: { usd: 17.51, how: 'box', box: 630.35 }, swsh11: { usd: 20.09, how: 'box', box: 723.38 }, swsh12: { usd: 9.7, how: 'list', box: 349.99 },
+  sv03: { usd: 9.9, how: 'box', box: 357 },      sv04: { usd: 7.8, how: 'box', box: 279.86 },  sv05: { usd: 8.7, how: 'box', box: 314.78 },
+  sv06: { usd: 6.9, how: 'box', box: 250 },      'sv08.5': { usd: 15, how: 'pack' }
+};
+const marketNote = m => m.how === 'pack' ? `낱팩 시세 · ${PACK_MARKET_DATE} 조사` : `박스 $${m.box.toLocaleString()} ÷ 36${m.how === 'list' ? ' (판매 등록가)' : ''} · ${PACK_MARKET_DATE} 조사`;
 function packPrices(set) {
   const m = REGION[set.id] || null, my = store.myPrices['pack:' + set.id] || {};
   const jp = m ? (m.jpP !== undefined ? m.jpP : JP_PRICE[m.jpT]) : null;
   const kr = m ? (m.krP !== undefined ? m.krP : KR_PRICE[m.krT]) : null;
   return {
     map: m,
-    en: { msrp: EN_MSRP, my: my.en, krw: (my.en ?? EN_MSRP) * S().usdKrw },
+    en: { msrp: EN_MSRP, my: my.en, market: PACK_MARKET[set.id]?.usd ?? null, krw: (my.en ?? PACK_MARKET[set.id]?.usd ?? EN_MSRP) * S().usdKrw },
     jp: { msrp: jp, my: my.jp, krw: (my.jp ?? jp) != null ? (my.jp ?? jp) * S().jpyKrw : null },
     kr: { msrp: kr, my: my.kr, krw: (my.kr ?? kr) }
   };
@@ -480,7 +493,8 @@ function packInfo(set) {
   const order = [r, 'kr', 'jp', 'en'].filter((x, i, a) => a.indexOf(x) === i);
   const use = order.find(x => p[x].krw != null) || 'en';
   const age = set.releaseDate ? (Date.now() - Date.parse(set.releaseDate)) / (365 * 864e5) : 0;
-  return { krw: p[use].krw, region: use, basis: p[use].my != null ? '내가 본 시세' : '정가', stale: age > 2 && p[use].my == null };
+  const basis = p[use].my != null ? '내가 본 시세' : p[use].market != null ? `시세 (${PACK_MARKET_DATE} 조사)` : '정가';
+  return { krw: p[use].krw, region: use, basis, stale: age > 2 && p[use].my == null && p[use].market == null };
 }
 
 // ================= 가격 =================
@@ -841,9 +855,10 @@ async function renderSet(id) {
   const src = await poolBriefs(set), briefs = src.briefs;
   if (isStale(nav)) return;
   const pp = packPrices(set), m = pp.map, packKr = packKrw(set), info = packInfo(set), spec = specFor(set);
+  const mk = PACK_MARKET[set.id];
   const priceRow = (flag, label, names, type, msrp, fmt, mine, key) => `<tr><th>${flag} ${label}</th><td>${names ? esc(names.join(' + ')) + ` <span class="muted">${esc(type)}</span><br>` : ''}
-      정가 <b>${msrp != null ? fmt(msrp) : '확인 필요'}</b>${mine != null ? ` · 내가 본 시세 <b>${fmt(mine)}</b>` : ''}
-      <div class="row" style="margin-top:4px"><input class="priceIn" type="number" min="0" step="any" placeholder="본 시세" data-pk="${key}" value="${mine ?? ''}"></div></td></tr>`;
+      정가 <b>${msrp != null ? fmt(msrp) : '확인 필요'}</b>${key === 'en' && mk ? ` · 시세 약 <b>${fmt(mk.usd)}</b> <span class="muted" style="font-size:.8rem">(${esc(marketNote(mk))})</span>` : ''}${mine != null ? ` · 내가 본 시세 <b>${fmt(mine)}</b>` : ''}
+      <div class="row" style="margin-top:4px"><input class="priceIn" type="number" min="0" step="any" placeholder="팩 1개 시세" aria-label="${label} 팩 1개 시세" data-pk="${key}" value="${mine ?? ''}">${key === 'en' ? '<input class="priceIn" type="number" min="0" step="any" placeholder="박스 가격 (36팩)" aria-label="영문판 박스 가격" data-pkbox="en" style="width:150px">' : ''}</div></td></tr>`;
   const q = encodeURIComponent(set.name + ' booster pack');
   view.innerHTML = `<div class="card">
     <div class="packhead">${logoTag(set)}<div><h2 style="margin:0">${esc(set.name)}</h2><span class="muted">${esc(set.series)} · ${esc(set.releaseDate)} 발매 · ${briefs.length}종</span></div></div>
@@ -874,6 +889,12 @@ async function renderSet(id) {
   view.querySelectorAll('[data-pk]').forEach(inp => inp.onchange = () => {
     const k = 'pack:' + set.id, v = inp.value === '' ? undefined : +inp.value;
     store.myPrices[k] = Object.assign({}, store.myPrices[k], { [inp.dataset.pk]: v }); save(); setTimeout(() => renderSet(id));
+  });
+  // 박스 가격을 넣으면 36팩으로 나눠 팩 1개 시세로 저장 (유튜브·판매글은 보통 박스 가격)
+  view.querySelectorAll('[data-pkbox]').forEach(inp => inp.onchange = () => {
+    if (inp.value === '') return;
+    const k = 'pack:' + set.id;
+    store.myPrices[k] = Object.assign({}, store.myPrices[k], { en: Math.round(+inp.value / 36 * 100) / 100 }); save(); setTimeout(() => renderSet(id));
   });
   document.getElementById('regionSel').onchange = e => { S().region = e.target.value; save(); renderSet(id); };
 
