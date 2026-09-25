@@ -204,6 +204,15 @@ footer a { color: var(--muted); }
 .cover.cardback .hint { position: absolute; bottom: 14px; }
 .reveal .under { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; background: #222; }
 .reveal .under img { width: 100%; height: 100%; object-fit: contain; }
+.shine { position: relative; overflow: hidden; }
+.shine::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1; mix-blend-mode: color-dodge; opacity: .5;
+  background: linear-gradient(115deg, transparent 25%, rgba(255,80,200,.55) 38%, rgba(80,255,255,.55) 48%, rgba(255,255,120,.55) 58%, transparent 72%);
+  background-size: 300% 300%; background-position: var(--mx, 50%) var(--my, 50%); }
+.shine.rev::after { opacity: .28; }
+.shine.sar::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1; mix-blend-mode: overlay; opacity: .7;
+  background-image: radial-gradient(circle, rgba(255,255,255,.95) 0 1px, transparent 1.6px), radial-gradient(circle, rgba(255,236,160,.9) 0 1px, transparent 1.6px), repeating-linear-gradient(45deg, rgba(255,255,255,.14) 0 2px, transparent 2px 6px);
+  background-size: 23px 23px, 31px 31px, auto; background-position: calc(var(--mx, 50%) * .5) calc(var(--my, 50%) * .5), calc(var(--mx, 50%) * -.4) calc(var(--my, 50%) * .3), 0 0; }
+.warn { background: #ffb30022; border: 1px solid #ffb30066; border-radius: 10px; padding: 8px 10px; font-size: .85rem; margin: 10px 0 0; }
 .cover .hint { margin-bottom: 8px; font-size: .82rem; font-weight: 700; color: #1b1b1b; background: rgba(255,255,255,.85); padding: 3px 10px; border-radius: 99px; animation: nudge 1.4s infinite; }
 @keyframes nudge { 50% { transform: translateY(-5px); } }
 .cover.gone { transition: transform .5s cubic-bezier(.3,.1,.3,1), opacity .5s; transform: rotateX(-110deg) translateY(-60px) !important; opacity: 0; pointer-events: none; }
@@ -223,6 +232,10 @@ footer a { color: var(--muted); }
 .evInfo td, .evInfo th { border-color: rgba(255,255,255,.12); color: #e6e9f5; }
 .evBtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
 .evBtns .ghost { background: var(--fx-btn); color: #fff; }
+.evPick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.evPick span { color: #aab; font-size: .8rem; width: 2.6em; }
+.evPick button { padding: 5px 10px; font-size: .8rem; background: var(--fx-btn); color: #fff; font-weight: 500; }
+.evPick button.on { background: #fff; color: #111; }
 .shake { animation: shake .45s; }
 #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
 @media (prefers-reduced-motion: reduce) { .rays, .laser, .cover .hint, .skel i, .skel b, .evCard, .hitbanner, .evBanner { animation: none !important; } .tile:active { transform: none; } }
@@ -305,20 +318,76 @@ function speciesOfCard(cardName) {
 }
 
 // ================= 레어도·확률 모델 =================
-// 1팩(영문 10장) 기준, 스칼렛&바이올렛·메가진화 시리즈 커뮤니티 추정치. 이전 시리즈는 근사.
 const TIERS = {
   common:   { ko: '커먼',     ab: 'C' },
   uncommon: { ko: '언커먼',   ab: 'U' },
   rare:     { ko: '레어',     ab: 'R' },
-  ace:      { ko: 'ACE SPEC', ab: 'ACE', rate: 1 / 20 },
-  double:   { ko: '더블 레어', ab: 'RR', rate: 1 / 5 },
-  special:  { ko: '스페셜',   ab: 'S',  rate: 1 / 20 },
-  ultra:    { ko: '울트라 레어', ab: 'SR', rate: 1 / 15, glow: 'ultra' },
-  ir:       { ko: '일러스트 레어', ab: 'AR', rate: 1 / 13, glow: 'ir' },
-  sir:      { ko: '스페셜 일러스트 레어', ab: 'SAR', rate: 1 / 86, glow: 'sir' },
-  hyper:    { ko: '하이퍼 레어', ab: 'UR', rate: 1 / 137, glow: 'hyper' },
+  ace:      { ko: 'ACE SPEC', ab: 'ACE' },
+  double:   { ko: '더블 레어', ab: 'RR' },
+  special:  { ko: '스페셜',   ab: 'S' },
+  ultra:    { ko: '울트라 레어', ab: 'SR', glow: 'ultra' },
+  ir:       { ko: '일러스트 레어', ab: 'AR', glow: 'ir' },
+  sir:      { ko: '스페셜 일러스트 레어', ab: 'SAR', glow: 'sir' },
+  hyper:    { ko: '하이퍼 레어', ab: 'UR', glow: 'hyper' },
   promo:    { ko: '프로모', ab: 'P' }
 };
+// 팩 구성: 슬롯 = [종류, 장수, 당첨표]. 당첨표 {등급: 확률}은 그 슬롯이 해당 등급으로 바뀔 팩당 확률.
+// 종류: common · uncommon · cu(커먼/언커먼) · rev(리버스 자리, 당첨 시 히트) · rare(레어 자리) · guar(해당 등급 확정)
+// 모든 확률은 공식 비공개라 커뮤니티 개봉 통계 기반 추정치. 판·시리즈마다 장수와 구성이 다르다.
+const SPECS = {
+  en_sv:   { label: '영문판 부스터', note: '스칼렛&바이올렛·메가진화', extra: '+ 기본 에너지 1장',
+             slots: [['common', 4], ['uncommon', 3], ['rev', 1, { ace: 1 / 20, special: 1 / 20 }], ['rev', 1, { ir: 1 / 13, sir: 1 / 86, hyper: 1 / 137 }], ['rare', 1, { double: 1 / 5, ultra: 1 / 15 }]] },
+  en_swsh: { label: '영문판 부스터', note: '소드&실드', extra: '+ 에너지·코드 카드',
+             slots: [['common', 5], ['uncommon', 3], ['rev', 1, { special: 1 / 10 }], ['rare', 1, { ultra: 1 / 5, hyper: 1 / 45 }]] },
+  en_sm:   { label: '영문판 부스터', note: '썬&문', extra: '+ 에너지·코드 카드',
+             slots: [['common', 5], ['uncommon', 3], ['rev', 1, {}], ['rare', 1, { ultra: 1 / 5, hyper: 1 / 40 }]] },
+  en_old:  { label: '영문판 부스터', note: 'XY 이전', extra: '+ 에너지·코드 카드',
+             slots: [['common', 5], ['uncommon', 3], ['rev', 1, { special: 1 / 30 }], ['rare', 1, { ultra: 1 / 6, hyper: 1 / 60 }]] },
+  en_wotc: { label: '영문판 부스터', note: '초창기(오리지널~e카드)', extra: '',
+             slots: [['common', 7], ['uncommon', 3], ['rare', 1, { ultra: 1 / 3, hyper: 1 / 100 }]] },
+  jk_exp:  { label: '확장팩', note: '5장', extra: '',
+             slots: [['cu', 3], ['rev', 1, {}], ['rare', 1, { double: 1 / 4.5, ir: 1 / 11, ultra: 1 / 40, sir: 1 / 120, hyper: 1 / 200 }]] },
+  jk_151:  { label: '강화 확장팩', note: '7장', extra: '',
+             slots: [['cu', 5], ['rev', 1, {}], ['rare', 1, { double: 1 / 3.5, ir: 1 / 7, ultra: 1 / 25, sir: 1 / 80, hyper: 1 / 150 }]] },
+  jk_high: { label: '하이클래스팩', note: '10장', extra: '',
+             slots: [['cu', 4], ['rev', 3, {}], ['guar', 1, 'double'], ['rare', 1, { ir: 1 / 2.5, ultra: 1 / 8, sir: 1 / 25, hyper: 1 / 80 }], ['rare', 1, {}]] }
+};
+const SLOT_KO = { common: '커먼', uncommon: '언커먼', cu: '커먼·언커먼', rev: '리버스', rare: '레어 이상', guar: 'RR 확정' };
+function enSpecKey(set) {
+  const id = (set.id || '').toLowerCase(), sr = (set.series || '').toLowerCase();
+  if (/^(sv|me)\d/.test(id) || /scarlet|mega evolution/.test(sr)) return 'en_sv';
+  if (/^(swsh|cel|pgo)/.test(id) || /sword/.test(sr)) return 'en_swsh';
+  if (/^sm/.test(id) || /sun/.test(sr)) return 'en_sm';
+  if (/^(base|gym|neo|lc|ecard|si\d)/.test(id) || /^(base|gym|neo|e-card)/.test(sr)) return 'en_wotc';
+  return 'en_old';
+}
+// 지금 고른 판(🇰🇷/🇯🇵/🇺🇸)에 맞는 팩 구성. 대응 판 정보가 없으면 영문판 구성으로.
+function specFor(set, region = S().region) {
+  const m = REGION[set.id];
+  if (region !== 'en' && m) {
+    const type = region === 'jp' ? m.jpT : m.krT;
+    const key = /ハイクラス|하이클래스/.test(type) ? 'jk_high' : set.id === 'sv03.5' ? 'jk_151' : 'jk_exp';
+    return { key, ...SPECS[key], label: `${region === 'jp' ? '🇯🇵 일본판' : '🇰🇷 한국판'} ${SPECS[key].label}`, jk: true };
+  }
+  const key = enSpecKey(set);
+  return { key, ...SPECS[key], label: `🇺🇸 ${SPECS[key].label} (${SPECS[key].note})`, fallback: region !== 'en' };
+}
+const specSize = spec => spec.slots.reduce((n, sl) => n + sl[1], 0);
+function specText(spec) {
+  const agg = {};
+  for (const [k, n] of spec.slots) agg[k] = (agg[k] || 0) + n;
+  return `${specSize(spec)}장 · ` + Object.entries(agg).map(([k, n]) => `${SLOT_KO[k]} ${n}`).join(' · ') + (spec.extra ? ` ${spec.extra}` : '');
+}
+// 팩당 등급별 기대 등장 수 (확률표·카드별 확률에 사용)
+function tierRates(spec, tiers) {
+  const r = {};
+  for (const [kind, n, table] of spec.slots) {
+    if (kind === 'guar') r[table] = (r[table] || 0) + n;
+    else if (table && typeof table === 'object') for (const [t, pr] of Object.entries(table)) if (tiers[t]) r[t] = (r[t] || 0) + n * pr;
+  }
+  return r;
+}
+const oddsText = x => x >= 1 ? `매 팩 ${+x.toFixed(1)}장` : `약 1/${Math.round(1 / x).toLocaleString()}`;
 function tierOf(r) {
   r = (r || '').toLowerCase();
   if (!r) return 'common';
@@ -369,23 +438,35 @@ function packPrices(set) {
     kr: { msrp: kr, my: my.kr, krw: (my.kr ?? kr) }
   };
 }
-function packKrw(set) {
+function packKrw(set) { return packInfo(set).krw; }
+// 개봉 기준 가격과 그 근거. 절판(발매 2년 경과) 팩은 정가가 현실과 크게 다를 수 있다.
+function packInfo(set) {
   const p = packPrices(set), r = S().region;
-  return p[r].krw ?? p.kr.krw ?? p.jp.krw ?? p.en.krw;
+  const order = [r, 'kr', 'jp', 'en'].filter((x, i, a) => a.indexOf(x) === i);
+  const use = order.find(x => p[x].krw != null) || 'en';
+  const age = set.releaseDate ? (Date.now() - Date.parse(set.releaseDate)) / (365 * 864e5) : 0;
+  return { krw: p[use].krw, region: use, basis: p[use].my != null ? '내가 본 시세' : '정가', stale: age > 2 && p[use].my == null };
 }
 
 // ================= 가격 =================
-function priceOf(c) {
-  let usd = null, variant = '';
-  const tp = c.tcgplayer && c.tcgplayer.prices;
-  if (tp) for (const [k, v] of Object.entries(tp)) {
-    const m = v.market ?? v.mid;
-    if (m != null && (usd == null || m > usd)) { usd = m; variant = k; }
-  }
-  const cm = c.cardmarket && c.cardmarket.prices;
-  const eur = cm ? (cm.trendPrice ?? cm.averageSellPrice ?? null) : null;
-  const krw = usd != null ? usd * S().usdKrw : eur != null ? eur * S().eurKrw : null;
-  return { usd, eur, krw, variant };
+// 버전별 시세. v: 'normal' | 'reverse' | 'holo' | TCGplayer 키 그대로. 없으면 기본 버전(일반 → 홀로 → 리버스 순).
+const VARIANT_KEYS = { normal: ['normal', 'unlimited', '1st-edition'], reverse: ['reverse-holofoil', 'reverse'], holo: ['holofoil', 'holo', 'unlimited-holofoil', '1st-edition-holofoil'] };
+const VARIANT_KO = { normal: '일반', 'reverse-holofoil': '리버스 홀로', reverse: '리버스', holofoil: '홀로', holo: '홀로', '1st-edition-holofoil': '1st 에디션 홀로', '1st-edition': '1st 에디션', 'unlimited-holofoil': '언리미티드 홀로', unlimited: '언리미티드' };
+function variantKeys(c) {
+  const tp = c.tcgplayer?.prices || {};
+  return Object.keys(tp).filter(k => (tp[k].market ?? tp[k].mid) != null);
+}
+function priceOf(c, v) {
+  const tp = c.tcgplayer?.prices || {}, keys = variantKeys(c);
+  let key = null;
+  if (v && VARIANT_KEYS[v]) key = VARIANT_KEYS[v].find(k => keys.includes(k)) || null;
+  else if (v && keys.includes(v)) key = v;
+  if (!key) key = ['normal', 'holofoil', 'reverse-holofoil'].find(k => keys.includes(k)) || keys[0] || null;
+  const usdV = key ? (tp[key].market ?? tp[key].mid) : null;
+  const cm = c.cardmarket?.prices, holoish = /holo|reverse/.test(key || v || '');
+  const eurV = cm ? ((holoish ? cm.trendHolo : null) ?? cm.trendPrice ?? cm.averageSellPrice ?? null) : null;
+  const krw = usdV != null ? usdV * S().usdKrw : eurV != null ? eurV * S().eurKrw : null;
+  return { usd: usdV, eur: eurV, krw, variant: key || '' };
 }
 const won = n => n == null ? '—' : '₩' + Math.round(n).toLocaleString('ko-KR');
 const usd = n => n == null ? '—' : '$' + n.toFixed(2);
@@ -449,7 +530,7 @@ function normCard(c) {
     id: c.id, name: c.name, rarity: c.rarity && c.rarity !== 'None' ? c.rarity : '', number: c.localId,
     set: normSet(c.set || {}), images: { small: imgUrl(c.image, 'low'), large: imgUrl(c.image, 'high') },
     tcgplayer: tp ? { prices } : null,
-    cardmarket: cm ? { prices: { trendPrice: cm.trend ?? null, averageSellPrice: cm.avg ?? null } } : null
+    cardmarket: cm ? { prices: { trendPrice: cm.trend ?? null, averageSellPrice: cm.avg ?? null, trendHolo: cm['trend-holo'] ?? null } } : null
   };
 }
 // 요약 → 화면용 임시 카드 (시세는 상세가 오면 채움)
@@ -535,8 +616,12 @@ view.addEventListener('click', e => {
 });
 
 // ================= 라우팅 (뒤로가기 지원) =================
+// 화면 번호표: 늦게 끝난 이전 화면의 로딩이 새 화면을 덮어쓰지 않게
+let navSeq = 0;
+const isStale = my => my !== navSeq;
 function go(page, arg) { location.hash = page + (arg != null ? '/' + encodeURIComponent(arg) : ''); }
 async function route() {
+  const nav = ++navSeq;
   const [page, raw] = location.hash.slice(1).split('/');
   const arg = raw ? decodeURIComponent(raw) : '';
   const tab = { sets: 'sets', set: 'sets', scan: 'scan', binder: '' }[page] ?? 'search';
@@ -550,7 +635,7 @@ async function route() {
     if (page === 'sets') return await renderSets();
     if (page === 'binder') return renderBinder();
     return await renderSearch(arg);
-  } catch (e) { fail(e); }
+  } catch (e) { if (!isStale(nav)) fail(e); }
 }
 window.addEventListener('hashchange', route);
 document.getElementById('tabs').onclick = e => { const b = e.target.closest('button'); if (b) go(b.dataset.tab); };
@@ -576,8 +661,10 @@ async function renderSearch(q) {
   const sp = findSpecies(q);
   const out = document.getElementById('results');
   if (!sp) { out.innerHTML = `<div class="status">"${esc(q)}"을(를) 찾지 못했어요.</div>`; return; }
+  const nav = navSeq;
   out.innerHTML = `<div class="status">${esc(sp.ko)} 카드 찾는 중…</div>${skeleton(8)}`;
   const briefs = await speciesBriefs(sp);
+  if (isStale(nav)) return;
   if (!briefs.length) { out.innerHTML = `<div class="status">${esc(sp.ko)} 카드가 없어요.</div>`; return; }
   out.innerHTML = `<div class="card"><h2>${esc(sp.ko)} <span class="muted">${esc(sp.en)} · ${esc(sp.ja)}</span></h2>
     <p class="muted" style="margin:0" id="ld" aria-live="polite">영문판 카드 ${briefs.length}장 · 시세 불러오는 중 0/${briefs.length}</p></div>
@@ -593,21 +680,23 @@ async function renderSearch(q) {
 
 // ================= 2. 카드 상세 =================
 async function renderCard(id) {
+  const nav = navSeq;
   let c = cardIndex.get(id);
-  if (!c) { status('카드 불러오는 중…'); c = remember([await fetchCard(id)])[0]; }
+  if (!c) { status('카드 불러오는 중…'); c = remember([await fetchCard(id)])[0]; if (isStale(nav)) return; }
   const p = priceOf(c), t = tierOf(c.rarity), sp = speciesOfCard(c.name);
   const my = store.myPrices['card:' + c.id] || {};
   const ab = TIERS[t].ab;
   const krQ = encodeURIComponent(`${sp ? sp.ko : c.name} ${ab} 포켓몬카드`);
   const jpQ = encodeURIComponent(`${sp ? sp.ja : c.name} ${ab}`);
   view.innerHTML = `<div class="card detail">
-    <div>${imgTag(c.images.large || c.images.small, c.name, 'cimg')}</div>
+    <div><div class="${shineClass(c)}" style="border-radius:12px">${imgTag(c.images.large || c.images.small, c.name, 'cimg')}</div>
+      ${variantKeys(c).length > 1 ? `<div class="muted" style="font-size:.8rem;margin-top:8px">버전별: ${variantKeys(c).map(k => `${VARIANT_KO[k] || k} <b>${won(priceOf(c, k).krw)}</b>`).join(' · ')}</div>` : ''}</div>
     <div>
       <h2>${esc(c.name)} ${sp ? `<span class="muted">${esc(sp.ko)} · ${esc(sp.ja)}</span>` : ''}</h2>
       <div><span class="chip">${esc(c.rarity || '—')}</span><span class="chip">${TIERS[t].ko} (${ab})</span><span class="chip">#${esc(c.number)}/${esc(c.set.printedTotal)}</span></div>
       <h3>💰 시세</h3>
       <div class="pchips">
-        <div class="pchip">🇺🇸 영문판 <span class="src ${p.krw != null ? 'auto' : 'none'}">${p.krw != null ? '자동' : '없음'}</span><span class="v">${won(p.krw)}</span><span class="muted">${usd(p.usd)} · ${eur(p.eur)}</span></div>
+        <div class="pchip">🇺🇸 영문판 <span class="src ${p.krw != null ? 'auto' : 'none'}">${p.krw != null ? '자동' : '없음'}</span><span class="v">${won(p.krw)}</span><span class="muted">${p.krw != null ? `${usd(p.usd)} · ${eur(p.eur)}${p.variant ? ' · ' + (VARIANT_KO[p.variant] || p.variant) : ''}` : '신규 세트는 시세 반영이 늦어요'}</span></div>
         <div class="pchip">🇯🇵 일본판 <span class="src ${my.jp != null ? 'mine' : 'none'}">${my.jp != null ? '내 입력' : '미입력'}</span><span class="v">${my.jp != null ? won(my.jp * S().jpyKrw) : '—'}</span><span class="muted">${my.jp != null ? yen(my.jp) : '링크에서 확인'}</span></div>
         <div class="pchip">🇰🇷 한국판 <span class="src ${my.kr != null ? 'mine' : 'none'}">${my.kr != null ? '내 입력' : '미입력'}</span><span class="v">${my.kr != null ? won(my.kr) : '—'}</span><span class="muted">${my.kr != null ? '직접 확인한 가격' : '링크에서 확인'}</span></div>
       </div>
@@ -628,24 +717,29 @@ async function renderCard(id) {
   if (!alive()) return;
   const packBtn = `<button class="ghost" data-set="${esc(set.id)}" style="width:100%;text-align:left">
       <div class="packhead">${logoTag(set)}<div><b>${esc(set.name)}</b><br><span class="muted">${esc(set.series)} · ${esc(set.releaseDate)} 발매 · ${esc(set.total)}종</span></div></div></button>`;
-  const rate = TIERS[t].rate;
-  box.innerHTML = packBtn + (rate ? `<p class="muted" id="oddsLd">확률 계산 중…</p>` : '') + `<div class="row" style="margin-top:10px"><button data-set="${esc(set.id)}">📦 팩 정보 · 수록 카드 보기</button></div>`;
-  if (!rate) return;
+  const spec = specFor(set);
+  box.innerHTML = packBtn + `<p class="muted" id="oddsLd">확률 계산 중…</p>` + `<div class="row" style="margin-top:10px"><button data-set="${esc(set.id)}">📦 팩 정보 · 수록 카드 보기</button></div>`;
   const setCards = remember(await cardsOfSet(c.set.id, (x, n, tot) => { const el = document.getElementById('oddsLd'); if (el) el.textContent = `확률 계산 중… ${n}/${tot}`; }, alive));
   if (!alive()) return;
-  const tierCount = setCards.filter(x => tierOf(x.rarity) === t).length || 1;
-  const pk = packKrw(set);
-  document.getElementById('oddsLd').outerHTML = `<table style="margin-top:8px">
-      <tr><th>한 팩에서 이 카드</th><td>약 1/${Math.round(tierCount / rate).toLocaleString()} <span class="muted">(${TIERS[t].ko} 1/${Math.round(1 / rate)} × ${tierCount}종)</span></td></tr>
-      <tr><th>팩으로 뽑으면</th><td>평균 약 ${won(tierCount / rate * pk)} <span class="muted">(팩 ${won(pk)} 기준)</span></td></tr>
-      <tr><th>싱글로 사면</th><td>${won(p.krw)}</td></tr></table>`;
+  const tiers = {};
+  for (const x of setCards) { const k = tierOf(x.rarity); (tiers[k] = tiers[k] || []).push(x); }
+  const tierCount = (tiers[t] || []).length || 1, rate = tierRates(spec, tiers)[t];
+  const info = packInfo(set), pk = info.krw;
+  document.getElementById('oddsLd').outerHTML = rate ? `<table style="margin-top:8px">
+      <tr><th>팩 구성</th><td>${esc(spec.label)} · ${esc(specText(spec))}</td></tr>
+      <tr><th>한 팩에서 이 카드</th><td>약 1/${Math.round(tierCount / rate).toLocaleString()} <span class="muted">(${TIERS[t].ko} ${oddsText(rate)} × ${tierCount}종)</span></td></tr>
+      <tr><th>팩으로 뽑으면</th><td>평균 약 ${won(tierCount / rate * pk)} <span class="muted">(팩 ${won(pk)} · ${info.basis}${info.stale ? ' · 절판 팩은 더 비쌀 수 있어요' : ''})</span></td></tr>
+      <tr><th>싱글로 사면</th><td>${won(p.krw)}</td></tr></table>`
+    : `<p class="muted">${TIERS[t].ko} 등급은 ${esc(spec.label)}에 매 팩 들어 있어요 (${esc(specText(spec))}).</p>`;
 }
 
 // ================= 3. 팩 정보 =================
 async function renderSet(id) {
+  const nav = navSeq;
   status('팩 정보 불러오는 중…', 8);
   const raw = await setRaw(id), set = normSet(raw), briefs = raw.cards || [];
-  const pp = packPrices(set), m = pp.map, packKr = packKrw(set);
+  if (isStale(nav)) return;
+  const pp = packPrices(set), m = pp.map, packKr = packKrw(set), info = packInfo(set), spec = specFor(set);
   const priceRow = (flag, label, names, type, msrp, fmt, mine, key) => `<tr><th>${flag} ${label}</th><td>${names ? esc(names.join(' + ')) + ` <span class="muted">${esc(type)}</span><br>` : ''}
       정가 <b>${msrp != null ? fmt(msrp) : '확인 필요'}</b>${mine != null ? ` · 내가 본 시세 <b>${fmt(mine)}</b>` : ''}
       <div class="row" style="margin-top:4px"><input class="priceIn" type="number" min="0" step="any" placeholder="본 시세" data-pk="${key}" value="${mine ?? ''}"></div></td></tr>`;
@@ -663,8 +757,11 @@ async function renderSet(id) {
     <div class="row">
       <label class="muted" for="regionSel">개봉 기준 가격</label>
       <select id="regionSel">${['kr', 'jp', 'en'].map(r => `<option value="${r}" ${S().region === r ? 'selected' : ''}>${{ kr: '🇰🇷 한국판', jp: '🇯🇵 일본판', en: '🇺🇸 영문판' }[r]}</option>`).join('')}</select>
-      <b>${won(packKr)}</b>
+      <b>${won(packKr)}</b> <span class="muted" style="font-size:.8rem">${info.basis}</span>
     </div>
+    ${info.stale ? `<p class="warn">⚠️ 발매 2년이 지난 팩이에요. 절판 팩은 실제 시세가 정가보다 훨씬 높을 수 있어요. 위 링크에서 본 시세를 입력하면 그 값으로 계산해요.</p>` : ''}
+    <p style="margin:10px 0 0"><b>📦 팩 구성</b> <span class="muted">${esc(spec.label)}</span><br>${esc(specText(spec))}</p>
+    ${spec.fallback ? '<p class="muted" style="margin:4px 0 0">이 팩은 일본·한국판 대응 정보가 없어 영문판 구성으로 계산해요.</p>' : ''}
     <h3>📊 한 팩의 평균 가치 (추정)</h3>
     <p style="margin:0" id="evBox" class="muted">카드 시세 불러오는 중…</p>
     <div class="row" style="margin-top:14px"><button id="openBtn" style="flex:1;padding:14px;font-size:1.05rem" disabled>카드 정보 불러오는 중…</button></div>
@@ -685,71 +782,110 @@ async function renderSet(id) {
   const byPrice = [...cards].sort(byPriceDesc);
   const tiers = {};
   for (const c of cards) { const t = tierOf(c.rarity); (tiers[t] = tiers[t] || []).push(c); }
-  const ev = expectedValue(tiers);   // 팩 한 장에 들어가는 카드들의 평균 시세 합
+  const ev = expectedValue(tiers, spec), evSell = expectedValue(tiers, spec, 1000);
   const failed = briefs.length - cards.length;
-  document.getElementById('evBox').outerHTML = `<p style="margin:0">약 <b>${won(ev)}</b> <span class="muted">· 팩 가격 ${won(packKr)} 대비 ${packKr ? Math.round(ev / packKr * 100) : '—'}%${failed ? ` · ${failed}장 제외` : ''}</span></p>`;
+  document.getElementById('evBox').outerHTML = `<p style="margin:0">약 <b>${won(ev)}</b> <span class="muted">· 팩 가격 ${won(packKr)} 대비 ${packKr ? Math.round(ev / packKr * 100) : '—'}%${failed ? ` · ${failed}장 제외` : ''}</span><br>
+    <span class="muted">되팔 수 있는 카드(₩1,000 이상)만 치면 약 <b>${won(evSell)}</b> · 벌크 카드는 실제로 거의 팔리지 않아요</span></p>`;
   document.getElementById('topBox').innerHTML = `<div class="grid">${byPrice.slice(0, 10).map((c, i) => tileHtml(c, `<span class="rank">${i + 1}</span>`)).join('')}</div>`;
-  document.getElementById('oddsBox').outerHTML = `<table class="odds"><tr><th>레어도</th><th>종류</th><th>한 팩에서</th></tr>
-    ${Object.keys(TIERS).filter(t => tiers[t]).map(t => `<tr><td>${TIERS[t].ko} (${TIERS[t].ab})</td><td>${tiers[t].length}종</td><td>${TIERS[t].rate ? '약 1/' + Math.round(1 / TIERS[t].rate) : t === 'promo' ? '팩 미수록' : '매 팩'}</td></tr>`).join('')}</table>`;
+  const rates = tierRates(spec, tiers);
+  document.getElementById('oddsBox').outerHTML = `<p class="muted" style="margin:0 0 6px">${esc(spec.label)} 기준 · 커뮤니티 추정치</p><table class="odds"><tr><th>레어도</th><th>종류</th><th>한 팩에서</th></tr>
+    ${Object.keys(TIERS).filter(t => tiers[t]).map(t => `<tr><td>${TIERS[t].ko} (${TIERS[t].ab})</td><td>${tiers[t].length}종</td><td>${rates[t] ? oddsText(rates[t]) : t === 'promo' ? '팩 미수록' : ['common', 'uncommon', 'rare'].includes(t) ? '매 팩' : '거의 없음'}</td></tr>`).join('')}</table>`;
   grid.innerHTML = byPrice.map(c => tileHtml(c)).join('');
   btn.disabled = false; btn.textContent = '🎁 이 팩 개봉하기';
-  btn.onclick = () => confirmOpen(set, tiers, packKr);
+  btn.onclick = () => confirmOpen(set, tiers, packKr, spec);
 }
-const avg = arr => arr && arr.length ? arr.reduce((s, c) => s + (priceOf(c).krw || 0), 0) / arr.length : 0;
-function expectedValue(tiers) {
-  const base = (tiers.common ? 4 * avg(tiers.common) : 0) + (tiers.uncommon ? 3 * avg(tiers.uncommon) : 0) + avg([...(tiers.common || []), ...(tiers.uncommon || []), ...(tiers.rare || [])]) * 2;
-  let hits = 0, rareShare = 1;
-  for (const t of ['double', 'ultra']) if (tiers[t]) { hits += TIERS[t].rate * avg(tiers[t]); rareShare -= TIERS[t].rate; }
-  for (const t of ['ir', 'sir', 'hyper', 'special', 'ace']) if (tiers[t]) { hits += TIERS[t].rate * avg(tiers[t]); }
-  return base + hits + rareShare * avg(tiers.rare || tiers.uncommon);
+const avgP = (arr, v, floor = 0) => arr && arr.length ? arr.reduce((s, c) => { const k = priceOf(c, v).krw || 0; return s + (k >= floor ? k : 0); }, 0) / arr.length : 0;
+function pools(tiers) {
+  const C = tiers.common || tiers.uncommon || tiers.rare || [], U = tiers.uncommon || C;
+  const CU = [...(tiers.common || []), ...(tiers.uncommon || [])];
+  return { C, U, CU: CU.length ? CU : C, R: tiers.rare || U, POOL: [...CU, ...(tiers.rare || [])].length ? [...CU, ...(tiers.rare || [])] : C };
+}
+// 팩 한 장의 평균 시세. floor를 주면 그보다 싼 카드는 0원(되팔 수 없는 벌크)으로 본다.
+function expectedValue(tiers, spec, floor = 0) {
+  const P = pools(tiers);
+  let ev = 0;
+  for (const [kind, n, table] of spec.slots) {
+    let v = 0;
+    if (kind === 'common') v = avgP(P.C, 'normal', floor);
+    else if (kind === 'uncommon') v = avgP(P.U, 'normal', floor);
+    else if (kind === 'cu') v = avgP(P.CU, 'normal', floor);
+    else if (kind === 'guar') v = avgP(tiers[table] || P.R, 'holo', floor);
+    else {
+      let rest = 1;
+      for (const [t, pr] of Object.entries(table || {})) if (tiers[t]) { v += pr * avgP(tiers[t], 'holo', floor); rest -= pr; }
+      v += rest * (kind === 'rev' ? avgP(P.POOL, 'reverse', floor) : avgP(P.R, 'normal', floor));
+    }
+    ev += n * v;
+  }
+  return ev;
 }
 
+// ================= 반짝임 =================
+// 리버스는 은은하게, 레어 이상은 무지개 홀로, SAR·하이퍼는 텍스처 반짝임까지. 손가락·기울기에 따라 빛이 움직인다.
+function shineClass(c, v) {
+  const t = tierOf(c.rarity);
+  if (t === 'sir' || t === 'hyper') return 'shine sar';
+  if (['ultra', 'ir', 'double', 'special', 'ace'].includes(t) || v === 'holo') return 'shine';
+  if (v === 'reverse') return 'shine rev';
+  return '';
+}
+const moveShine = (mx, my) => document.querySelectorAll('.shine').forEach(el => { el.style.setProperty('--mx', mx + '%'); el.style.setProperty('--my', my + '%'); });
+document.addEventListener('pointermove', e => {
+  const el = e.target.closest?.('.shine, .reveal'); if (!el) return;
+  const r = el.getBoundingClientRect(); moveShine((e.clientX - r.left) / r.width * 100, (e.clientY - r.top) / r.height * 100);
+}, { passive: true });
+window.addEventListener('deviceorientation', e => { if (e.gamma != null) moveShine(50 + e.gamma * 2.2, 50 + ((e.beta ?? 45) - 45) * 2.2); }, { passive: true });
+
 // ================= 4. 개봉 =================
-function confirmOpen(set, tiers, packKr) {
+function confirmOpen(set, tiers, packKr, spec) {
+  const info = packInfo(set);
   const modal = document.getElementById('modal');
   modal.innerHTML = `<div class="card" style="text-align:center">
     ${logoTag(set)}
     <h2 style="margin-top:10px">${esc(set.name)} 팩을 개봉할까요?</h2>
-    <p class="muted">가상 개봉이라 실제 결제는 없어요.<br>실제로 샀다면 ${won(packKr)}이에요.</p>
+    <p style="margin:6px 0"><b>${esc(spec.label)}</b><br><span class="muted">${esc(specText(spec))}</span></p>
+    ${spec.fallback ? '<p class="muted" style="margin:4px 0">이 팩은 일본·한국판 대응 정보가 없어 영문판 구성으로 열어요.</p>' : ''}
+    ${spec.jk ? '<p class="muted" style="margin:4px 0">카드 목록은 영문판 기준이에요 (일본·한국판 수록 카드와 조금 다를 수 있어요).</p>' : ''}
+    <p class="muted">가상 개봉이라 실제 결제는 없어요.<br>실제로 샀다면 ${won(packKr)} <span style="font-size:.8rem">(${info.basis}${info.stale ? ' · 절판 팩은 실제로 더 비쌀 수 있어요' : ''})</span></p>
     <label class="muted" style="display:block;margin-bottom:12px"><input type="checkbox" id="quickOpen" ${store.quick ? 'checked' : ''}> ⚡ 빠르게 보기 (연출 없이 결과만)</label>
     <div class="row"><button class="ghost" id="noOpen" style="flex:1">아니요</button><button id="yesOpen" style="flex:1">개봉할게요!</button></div></div>`;
   modal.classList.remove('hidden');
   document.getElementById('noOpen').onclick = () => modal.classList.add('hidden');
   document.getElementById('quickOpen').onchange = e => { store.quick = e.target.checked; save(); };
-  document.getElementById('yesOpen').onclick = () => { modal.classList.add('hidden'); openPack(set, tiers, packKr); };
+  document.getElementById('yesOpen').onclick = () => { modal.classList.add('hidden'); openPack(set, tiers, packKr, spec); };
 }
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-function rollSlot(tiers, table, fallback) {
-  let r = Math.random();
-  for (const t of table) if (tiers[t]) { if (r < TIERS[t].rate) return pick(tiers[t]); r -= TIERS[t].rate; }
-  return pick(fallback);
+// 팩 만들기: 구성표 순서대로(커먼 먼저, 히트는 뒤) 한 장씩. 같은 팩 안에서는 같은 카드가 겹치지 않게.
+function buildPack(tiers, spec) {
+  const P = pools(tiers), used = new Set(), out = [];
+  const take = (arr, v, slot) => {
+    if (!arr || !arr.length) return;
+    const fresh = arr.filter(c => !used.has(c.id)), c = pick(fresh.length ? fresh : arr);
+    used.add(c.id); out.push({ c, v, slot });
+  };
+  const hit = table => { let r = Math.random(); for (const [t, pr] of Object.entries(table || {})) if (tiers[t]) { if (r < pr) return t; r -= pr; } return null; };
+  for (const [kind, n, table] of spec.slots) for (let i = 0; i < n; i++) {
+    if (kind === 'common') take(P.C, 'normal', kind);
+    else if (kind === 'uncommon') take(P.U, 'normal', kind);
+    else if (kind === 'cu') take(P.CU, 'normal', kind);
+    else if (kind === 'guar') take(tiers[table] || P.R, 'holo', 'hit');
+    else { const t = hit(table); if (t) take(tiers[t], 'holo', 'hit'); else take(kind === 'rev' ? P.POOL : P.R, kind === 'rev' ? 'reverse' : 'normal', kind); }
+  }
+  return out;
 }
-function buildPack(tiers) {
-  const commons = tiers.common || tiers.uncommon || tiers.rare;
-  const uncommons = tiers.uncommon || commons;
-  const pool = [...(tiers.common || []), ...(tiers.uncommon || []), ...(tiers.rare || [])];
-  const rares = tiers.rare || uncommons;
-  const pack = [];
-  for (let i = 0; i < 4; i++) pack.push(pick(commons));
-  for (let i = 0; i < 3; i++) pack.push(pick(uncommons));
-  pack.push(rollSlot(tiers, ['ace', 'special'], pool));          // 리버스 1
-  pack.push(rollSlot(tiers, ['hyper', 'sir', 'ir'], pool));      // 리버스 2 / 일러스트 슬롯
-  pack.push(rollSlot(tiers, ['ultra', 'double'], rares));        // 레어 슬롯 (맨 뒤)
-  return pack;
-}
-function openPack(set, tiers, packKr) {
-  const pack = buildPack(tiers);
+function openPack(set, tiers, packKr, spec) {
+  const pack = buildPack(tiers, spec);
   store.opened++; store.spentIfReal += packKr || 0;
-  for (const c of pack) {
+  for (const { c, v } of pack) {
     const b = store.binder[c.id] || { n: 0, name: c.name, img: c.images.small, set: c.set.name, rarity: c.rarity };
-    b.n++; b.krw = priceOf(c).krw; store.binder[c.id] = b;
+    b.n++; b.krw = priceOf(c, v).krw; store.binder[c.id] = b;
   }
   save();
   const stage = document.getElementById('stage');
   stage.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
   // 쪼는 동안 아래 카드가 바로 보이도록 10장 이미지를 미리 받아둔다
-  for (const c of pack) for (const u of [c.images.small, c.images.large]) if (u) { const im = new Image(); im.src = u; }
+  for (const { c } of pack) for (const u of [c.images.small, c.images.large]) if (u) { const im = new Image(); im.src = u; }
   if (store.quick) return showSummary();
   stage.innerHTML = `<div class="counter">${esc(set.name)} · 0 / ${pack.length}</div>
     <div class="packart" id="packArt">${logoTag(set)}<div style="margin-top:14px;font-weight:700">탭해서 뜯기</div></div>
@@ -764,10 +900,10 @@ function openPack(set, tiers, packKr) {
 
   function showCard(i) {
     if (i >= pack.length) return showSummary();
-    const c = pack[i], t = tierOf(c.rarity), g = TIERS[t].glow, p = priceOf(c);
+    const e = pack[i], c = e.c, t = tierOf(c.rarity), g = TIERS[t].glow, p = priceOf(c, e.v);
     stage.innerHTML = `<div class="counter" aria-live="polite">${i + 1} / ${pack.length}</div>
       <div class="reveal" id="rv">
-        <div class="under"><img id="uimg" src="${esc(c.images.small || NOIMG)}" alt="${esc(c.name)}" onerror="this.onerror=null;this.src='${NOIMG}'"></div>
+        <div class="under ${shineClass(c, e.v)}"><img id="uimg" src="${esc(c.images.small || NOIMG)}" alt="${esc(c.name)}" onerror="this.onerror=null;this.src='${NOIMG}'"></div>
         <div class="cover cardback" id="cv"><span class="hint">⬆⬇ 위·아래를 잡고 살짝 들어보기 · 탭하면 바로</span></div>
       </div>
       <div class="revealInfo" id="ri"><span class="muted">위나 아래 끝을 잡고 조금씩 들어 올려보세요</span></div>
@@ -780,19 +916,20 @@ function openPack(set, tiers, packKr) {
       onOpen: () => {
         if (g) { rv.classList.add('glow-' + g); buzz(g === 'hyper' || g === 'sir' ? [80, 50, 80, 50, 160] : [60]); }
         const hit = g ? `<div class="hitbanner" style="color:var(--${g === 'ultra' ? 'gold' : g})">${{ ultra: '✨ 울트라 레어!', ir: '🎨 일러스트 레어!', sir: '💜 스페셜 일러스트 레어!!', hyper: '👑 하이퍼 레어!!!' }[g]}</div>` : '';
-        document.getElementById('ri').innerHTML = `${hit}<div class="rar">${esc(c.name)}</div><div>${esc(c.rarity || '')} · <b>${won(p.krw)}</b></div><div class="muted">탭해서 다음 카드</div>`;
+        document.getElementById('ri').innerHTML = `${hit}<div class="rar">${esc(c.name)}</div><div>${esc(c.rarity || '')}${e.v === 'reverse' ? ' · 리버스 홀로' : ''} · <b>${won(p.krw)}</b></div><div class="muted">탭해서 다음 카드</div>`;
         setTimeout(() => { rv.onclick = () => showCard(i + 1); }, 350);   // 여는 동작의 클릭이 바로 넘기지 않게
       }
     });
   }
   function showSummary() {
-    const total = pack.reduce((s, c) => s + (priceOf(c).krw || 0), 0);
-    const best = pack.reduce((a, c) => (priceOf(c).krw || 0) > (priceOf(a).krw || 0) ? c : a, pack[0]);
+    const kr = e => priceOf(e.c, e.v).krw || 0;
+    const total = pack.reduce((s, e) => s + kr(e), 0);
+    const best = pack.reduce((a, e) => kr(e) > kr(a) ? e : a, pack[0]);
     stage.innerHTML = `<div class="summary">
       <h2 style="text-align:center;margin-bottom:4px">개봉 결과</h2>
       <p style="text-align:center;margin-top:0">카드 가치 합계 <b>${won(total)}</b> <span style="color:#aab">· 팩 ${won(packKr)}</span><br>
-        👑 최고가: <b>${esc(best.name)}</b> ${won(priceOf(best).krw)}</p>
-      <div class="grid">${pack.map(c => `<div class="tile ${c === best ? 'best' : ''}">${imgTag(c.images.small, c.name)}<div class="nm">${esc(c.name)}</div><div class="pr">${won(priceOf(c).krw)}</div></div>`).join('')}</div>
+        👑 최고가: <b>${esc(best.c.name)}</b> ${won(kr(best))}</p>
+      <div class="grid">${pack.map(e => `<div class="tile ${e === best ? 'best' : ''}">${imgTag(e.c.images.small, e.c.name)}<div class="nm">${esc(e.c.name)}</div><div class="pr">${won(kr(e))}${e.v === 'reverse' ? ' <span style="color:var(--fx-muted);font-size:.75rem">리버스</span>' : ''}</div></div>`).join('')}</div>
       <p style="text-align:center;color:#aab;font-size:.85rem">지금까지 가상 개봉 ${store.opened}팩 · 실제로 샀다면 ${won(store.spentIfReal)} · 실제 지출 ₩0</p>
       <div class="stageBtns"><button id="again">🎁 한 팩 더</button><button class="ghost" id="close">팩 정보로</button><button class="ghost" id="toBinder">📒 바인더</button></div></div>`;
     const close = () => { stage.classList.add('hidden'); document.body.style.overflow = ''; };
@@ -804,8 +941,10 @@ function openPack(set, tiers, packKr) {
 
 // ================= 5. 팩 목록 =================
 async function renderSets() {
+  const nav = navSeq;
   status('팩 목록 불러오는 중…', 12);
   const sets = (await allSets()).filter(s => !/promo/i.test(s.name));
+  if (isStale(nav)) return;
   view.innerHTML = `<div class="card"><h2>📦 팩 둘러보기</h2><p class="muted" style="margin:0">최신순 · ⭐ 표시는 일본·한국판 대응 팩 정보가 있는 팩이에요.</p></div>
     <div class="grid">${sets.map(s => `<button class="tile" data-set="${esc(s.id)}" style="text-align:center">
       <div style="height:70px;display:flex;align-items:center;justify-content:center">${logoTag(s)}</div>
@@ -824,7 +963,7 @@ function renderBinder() {
       : '<div class="status">아직 카드가 없어요. 팩을 개봉해보세요!</div>'}
     <div class="card" style="margin-top:14px"><h2>📷 스캔한 실물 카드</h2>
     <p class="muted" style="margin:0">${Object.keys(store.collection).length}종 · 스캔 당시 시세 합계 <b>${won(Object.values(store.collection).reduce((s, c) => s + (c.krw || 0) * c.n, 0))}</b></p></div>
-    ${Object.keys(store.collection).length ? `<div class="grid">${Object.entries(store.collection).sort((a, b) => (b[1].krw || 0) - (a[1].krw || 0)).map(([id, c]) => `<button class="tile" data-card="${esc(id)}">${imgTag(c.img, c.name)}<div class="nm">${esc(c.name)}${c.n > 1 ? ` ×${c.n}` : ''}</div><div class="muted" style="font-size:.78rem">${esc(c.set)} · ${esc(c.date)}</div><div class="pr"><b>${won(c.krw)}</b></div></button>`).join('')}</div>` : '<div class="status">스캔 탭에서 실물 카드를 찍어보세요.</div>'}`;
+    ${Object.keys(store.collection).length ? `<div class="grid">${Object.entries(store.collection).sort((a, b) => (b[1].krw || 0) - (a[1].krw || 0)).map(([id, c]) => `<button class="tile" data-card="${esc(id)}">${imgTag(c.img, c.name)}<div class="nm">${esc(c.name)}${c.n > 1 ? ` ×${c.n}` : ''}</div><div class="muted" style="font-size:.78rem">${esc(c.set)} · ${esc(c.date)}${c.grade && c.grade !== '미등급' ? ' · ' + esc(c.grade) : c.variant ? ' · ' + esc(c.variant) : ''}</div><div class="pr"><b>${won(c.krw)}</b></div></button>`).join('')}</div>` : '<div class="status">스캔 탭에서 실물 카드를 찍어보세요.</div>'}`;
 }
 view.addEventListener('click', e => { const b = e.target.closest('[data-sort]'); if (b) { store.binderSort = b.dataset.sort; save(); renderBinder(); } });
 const ORDER = ['promo', 'common', 'uncommon', 'rare', 'ace', 'double', 'special', 'ultra', 'ir', 'sir', 'hyper'];
@@ -876,7 +1015,7 @@ async function renderScan() {
   stopCamera();
   view.innerHTML = `<div class="card">
     <h2>📷 카드 스캔</h2>
-    <p class="muted" style="margin:0 0 12px">카드를 어두운 바닥에 놓고, 틀 네 모서리가 초록색이 될 때까지 맞춰주세요. 자동으로 찍혀요.</p>
+    <p class="muted" style="margin:0 0 12px">카드를 어두운 바닥에 놓고, 틀 네 모서리가 초록색이 될 때까지 맞춰주세요. 자동으로 찍혀요. 슬리브·탑로더는 빼면 더 잘 읽혀요 · 영문판 카드 기준이에요.</p>
     <div class="scanbox" id="sbox">
       <video id="vid" playsinline muted autoplay></video>
       <div class="guide" id="guide"><b></b><b></b><b></b><b></b><div class="hold"><i id="holdBar"></i></div></div>
@@ -1246,9 +1385,18 @@ function countUp(el, target) {
 function showEvMore(c, p) {
   const sp = speciesOfCard(c.name), ab = TIERS[tierOf(c.rarity)].ab;
   const krQ = encodeURIComponent(`${sp ? sp.ko : c.name} ${ab} 포켓몬카드`), jpQ = encodeURIComponent(`${sp ? sp.ja : c.name} ${ab}`);
+  const pcQ = encodeURIComponent(`${c.name} ${c.set.name} ${c.number}`);
   const have = store.collection[c.id];
-  document.getElementById('evMore').innerHTML = `<div class="evInfo"><table>
-      <tr><th>🇺🇸 영문판</th><td>TCGplayer ${usd(p.usd)} · Cardmarket ${eur(p.eur)}</td></tr>
+  const keys = variantKeys(c), GRADES = ['미등급', 'PSA 10', 'PSA 9', 'BGS 9.5', 'CGC 10'];
+  let variant = p.variant, grade = '미등급';
+  document.getElementById('evMore').innerHTML = `<div class="evInfo">
+      ${keys.length > 1 ? `<div class="evPick"><span>버전</span>${keys.map(k => `<button data-var="${esc(k)}" class="${k === variant ? 'on' : ''}">${esc(VARIANT_KO[k] || k)}</button>`).join('')}</div>` : ''}
+      <div class="evPick"><span>등급</span>${GRADES.map(g => `<button data-grade="${g}" class="${g === grade ? 'on' : ''}">${g}</button>`).join('')}</div>
+      <div id="gradeBox" class="hidden" style="margin:6px 0 8px;font-size:.85rem">등급 카드 시세는 공개 데이터가 없어요 · <a href="https://www.pricecharting.com/search-products?q=${pcQ}&type=prices" target="_blank" rel="noopener">PriceCharting에서 확인</a>
+        <input class="priceIn" id="gradePrice" type="number" min="0" placeholder="본 가격 ₩" style="margin-left:6px;color:#111"></div>
+      <p style="margin:4px 0 8px;font-size:.78rem;color:#aab">스캔으로는 버전(일반/리버스)과 등급을 알 수 없어요. 내 카드에 맞게 골라주세요.</p>
+      <table>
+      <tr><th>🇺🇸 영문판</th><td id="evUs">TCGplayer ${usd(p.usd)} · Cardmarket ${eur(p.eur)}</td></tr>
       <tr><th>🇯🇵 일본판</th><td><a href="https://snkrdunk.com/search?keywords=${jpQ}" target="_blank" rel="noopener">스니덩</a> · <a href="https://www.cardrush-pokemon.jp/product-list?keyword=${jpQ}" target="_blank" rel="noopener">카드러시</a></td></tr>
       <tr><th>🇰🇷 한국판</th><td><a href="https://m.bunjang.co.kr/search/products?q=${krQ}" target="_blank" rel="noopener">번개장터</a> · <a href="https://kream.co.kr/search?keyword=${krQ}" target="_blank" rel="noopener">KREAM</a></td></tr>
     </table></div>
@@ -1257,10 +1405,23 @@ function showEvMore(c, p) {
       <button class="ghost" id="evDetail">카드 상세</button>
       <button class="ghost" id="evAgain">📷 다음 카드</button>
     </div>`;
+  const current = () => {
+    const gp = document.getElementById('gradePrice').value;
+    return grade !== '미등급' && gp !== '' ? +gp : priceOf(c, variant).krw;
+  };
+  const refresh = () => {
+    const q = priceOf(c, variant), k = current();
+    document.getElementById('pval').textContent = k != null ? won(k) : '시세 없음';
+    document.getElementById('psub').textContent = grade !== '미등급' ? `${grade} · 직접 입력한 가격` : q.usd != null ? `${usd(q.usd)} · TCGplayer · ${VARIANT_KO[q.variant] || q.variant}` : '';
+    document.getElementById('evUs').textContent = `TCGplayer ${usd(q.usd)} · Cardmarket ${eur(q.eur)}`;
+  };
+  document.querySelectorAll('[data-var]').forEach(b => b.onclick = () => { variant = b.dataset.var; document.querySelectorAll('[data-var]').forEach(x => x.classList.toggle('on', x === b)); refresh(); });
+  document.querySelectorAll('[data-grade]').forEach(b => b.onclick = () => { grade = b.dataset.grade; document.querySelectorAll('[data-grade]').forEach(x => x.classList.toggle('on', x === b)); document.getElementById('gradeBox').classList.toggle('hidden', grade === '미등급'); refresh(); });
+  document.getElementById('gradePrice').oninput = refresh;
   const close = () => { document.getElementById('event').classList.add('hidden'); document.body.style.overflow = ''; };
   document.getElementById('evKeep').onclick = e => {
     const x = store.collection[c.id] || { n: 0, name: c.name, img: c.images.small, set: c.set.name };
-    x.n++; x.krw = p.krw; x.date = new Date().toLocaleDateString('ko-KR');
+    x.n++; x.krw = current(); x.variant = VARIANT_KO[variant] || variant; x.grade = grade; x.date = new Date().toLocaleDateString('ko-KR');
     store.collection[c.id] = x; save();
     e.target.textContent = `✔ 추가했어요 (보유 ${x.n})`; e.target.disabled = true;
   };
