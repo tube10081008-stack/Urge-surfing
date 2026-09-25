@@ -11,7 +11,7 @@
   --accent: #e3350d; --accent-ink: #ffffff; --chip: #eef1f6;
   --gold: #d9a400; --ir: #3f8cff; --sir: #c04bff; --hyper: #ffb300;
   /* 개봉·스캔 연출 무대는 테마와 무관하게 어둡게 고정 (의도된 선택) */
-  --fx-bg: rgba(5,8,14,.94); --fx-tile: #161c26; --fx-line: #2a3345; --fx-btn: #263043; --fx-muted: #aab;
+  --fx-bg: rgba(5,8,14,.985); --fx-tile: #161c26; --fx-line: #2a3345; --fx-btn: #263043; --fx-muted: #aab;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -27,7 +27,8 @@
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; line-height: 1.5; }
 main { max-width: 880px; margin: 0 auto; padding: 16px 16px 72px; }
 header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-header h1 { font-size: clamp(1.05rem, 4.5vw, 1.3rem); margin: 0; flex: 1; cursor: pointer; }
+header h1 { font-size: clamp(1.05rem, 4.5vw, 1.3rem); margin: 0; flex: 1; min-width: 0; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 620px) { .lbl { display: none; } }
 h2 { font-size: 1.08rem; margin: 0 0 10px; }
 h3 { font-size: .98rem; margin: 14px 0 8px; }
 button { font: inherit; border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer; background: var(--accent); color: var(--accent-ink); font-weight: 600; }
@@ -92,6 +93,8 @@ main { overflow-x: clip; }
 
 /* detail */
 .detail { display: grid; grid-template-columns: 240px 1fr; gap: 18px; }
+.detail > * { min-width: 0; }
+td { overflow-wrap: anywhere; }
 @media (max-width: 620px) { .detail { grid-template-columns: 1fr; } .detail .cimg { max-width: 260px; margin: 0 auto; } }
 table { border-collapse: collapse; width: 100%; font-size: .9rem; }
 td, th { padding: 7px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
@@ -116,17 +119,15 @@ th { color: var(--muted); font-weight: 500; white-space: nowrap; }
 .packart.tear { animation: tear .6s forwards; }
 @keyframes shake { 20%,60% { transform: rotate(-4deg); } 40%,80% { transform: rotate(4deg); } }
 @keyframes tear { to { transform: translateY(-40px) scale(1.1); opacity: 0; } }
-.reveal { width: min(300px, 78vw); aspect-ratio: 63/88; position: relative; perspective: 1000px; cursor: pointer; }
-.flip { position: absolute; inset: 0; transition: transform .55s; transform-style: preserve-3d; }
-.flip.open { transform: rotateY(180deg); }
+.reveal { width: min(300px, 74vw); aspect-ratio: 63/88; position: relative; perspective: 900px; cursor: pointer; touch-action: none; }
 .face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 14px; overflow: hidden; }
 .face.back { background: radial-gradient(circle at 50% 50%, #fff 0 12%, #222 12% 16%, transparent 16%), linear-gradient(#e3350d 0 47%, #222 47% 53%, #f4f4f4 53%); border: 6px solid #2a4fb8; }
 .face.front { transform: rotateY(180deg); background: #222; }
 .face.front img { width: 100%; height: 100%; object-fit: contain; }
-.glow-ultra .face.front { box-shadow: 0 0 30px 6px var(--gold); }
-.glow-ir .face.front { box-shadow: 0 0 34px 8px var(--ir); }
-.glow-sir .face.front { box-shadow: 0 0 44px 12px var(--sir); animation: pulse 1.2s infinite; }
-.glow-hyper .face.front { box-shadow: 0 0 50px 14px var(--hyper); animation: pulse .9s infinite; }
+.glow-ultra .under, .glow-ultra .face.front { box-shadow: 0 0 30px 6px var(--gold); }
+.glow-ir .under, .glow-ir .face.front { box-shadow: 0 0 34px 8px var(--ir); }
+.glow-sir .under, .glow-sir .face.front { box-shadow: 0 0 44px 12px var(--sir); animation: pulse 1.2s infinite; }
+.glow-hyper .under, .glow-hyper .face.front { box-shadow: 0 0 50px 14px var(--hyper); animation: pulse .9s infinite; }
 @keyframes pulse { 50% { filter: brightness(1.25); } }
 .revealInfo { text-align: center; margin-top: 14px; min-height: 4.5em; }
 .revealInfo .rar { font-size: 1.1rem; font-weight: 700; }
@@ -140,7 +141,7 @@ th { color: var(--muted); font-weight: 500; white-space: nowrap; }
 .summary .tile.best { border: 2px solid var(--hyper); box-shadow: 0 0 20px var(--hyper); }
 .stageBtns { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
 .stageBtns .ghost { background: var(--fx-btn); color: #fff; }
-@media (prefers-reduced-motion: reduce) { .packart::after, .glow-sir .face.front, .glow-hyper .face.front { animation: none; } .flip { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .packart::after, .glow-sir .under, .glow-hyper .under { animation: none; } }
 
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .modal .card { max-width: 420px; width: 100%; margin: 0; }
@@ -197,10 +198,16 @@ footer a { color: var(--muted); }
 .cover { position: absolute; inset: 0; border-radius: 16px; transform-origin: 50% 0%; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
   background: radial-gradient(circle at 50% 50%, #fff 0 9%, #1b1b1b 9% 12.5%, transparent 12.5%), linear-gradient(#e3350d 0 47%, #1b1b1b 47% 53%, #f4f4f4 53%);
   box-shadow: 0 0 0 5px #2a4fb8, 0 12px 30px rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; }
-.cover::after { content: ""; position: absolute; inset: 0; border-radius: 16px; background: linear-gradient(to top, rgba(0,0,0,var(--shade, 0)), transparent 70%); pointer-events: none; }
+.cover::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(to top, rgba(0,0,0,var(--shade, 0)), transparent 70%); pointer-events: none; }
+.cover[data-from="top"]::after { background: linear-gradient(to bottom, rgba(0,0,0,var(--shade, 0)), transparent 70%); }
+.cover.cardback { border-radius: 14px; box-shadow: inset 0 0 0 6px #2a4fb8, 0 12px 30px rgba(0,0,0,.6); background: radial-gradient(circle at 50% 50%, #fff 0 12%, #222 12% 16%, transparent 16%), linear-gradient(#e3350d 0 47%, #222 47% 53%, #f4f4f4 53%); align-items: center; }
+.cover.cardback .hint { position: absolute; bottom: 14px; }
+.reveal .under { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; background: #222; }
+.reveal .under img { width: 100%; height: 100%; object-fit: contain; }
 .cover .hint { margin-bottom: 8px; font-size: .82rem; font-weight: 700; color: #1b1b1b; background: rgba(255,255,255,.85); padding: 3px 10px; border-radius: 99px; animation: nudge 1.4s infinite; }
 @keyframes nudge { 50% { transform: translateY(-5px); } }
 .cover.gone { transition: transform .5s cubic-bezier(.3,.1,.3,1), opacity .5s; transform: rotateX(-110deg) translateY(-60px) !important; opacity: 0; pointer-events: none; }
+.cover.gone[data-from="top"] { transform: rotateX(110deg) translateY(60px) !important; }
 .cover.back { transition: transform .35s cubic-bezier(.3,1.5,.5,1); }
 .evVerdict { margin-top: 16px; font-size: 1.7rem; font-weight: 900; text-align: center; min-height: 1.3em; }
 .evInfo { width: min(420px, 92vw); margin-top: 12px; background: rgba(255,255,255,.07); border-radius: 14px; padding: 12px 14px; font-size: .88rem; }
@@ -217,7 +224,7 @@ footer a { color: var(--muted); }
 <main>
   <header>
     <h1 id="homeLink">🃏 포켓몬 카드 팩 도감</h1>
-    <button class="ghost" id="binderBtn">📒 내 바인더</button>
+    <button class="ghost" id="binderBtn" aria-label="내 바인더">📒<span class="lbl"> 내 바인더</span></button>
     <button class="ghost" id="settingsBtn" aria-label="설정">⚙️</button>
   </header>
 
@@ -749,20 +756,24 @@ function openPack(set, tiers, packKr) {
     if (i >= pack.length) return showSummary();
     const c = pack[i], t = tierOf(c.rarity), g = TIERS[t].glow, p = priceOf(c);
     stage.innerHTML = `<div class="counter" aria-live="polite">${i + 1} / ${pack.length}</div>
-      <div class="reveal ${g ? 'glow-' + g : ''}" id="rv"><div class="flip" id="fl">
-        <div class="face back"></div><div class="face front">${imgTag(c.images.large || c.images.small, c.name)}</div></div></div>
-      <div class="revealInfo" id="ri"><span class="muted">탭해서 뒤집기</span></div>
+      <div class="reveal" id="rv">
+        <div class="under">${imgTag(c.images.large || c.images.small, c.name)}</div>
+        <div class="cover cardback" id="cv"><span class="hint">⬆⬇ 위·아래를 잡고 살짝 들어보기 · 탭하면 바로</span></div>
+      </div>
+      <div class="revealInfo" id="ri"><span class="muted">위나 아래 끝을 잡고 조금씩 들어 올려보세요</span></div>
       <div class="stageBtns"><button class="ghost" id="skipAll">결과 바로 보기</button></div>`;
     document.getElementById('skipAll').onclick = () => showSummary();
-    let flipped = false;
-    document.getElementById('rv').onclick = () => {
-      if (!flipped) {
-        flipped = true;
-        document.getElementById('fl').classList.add('open');
+    const rv = document.getElementById('rv');
+    makeSqueeze(document.getElementById('cv'), {
+      full: rv.offsetHeight * .75,
+      onTap: open => open(),
+      onOpen: () => {
+        if (g) { rv.classList.add('glow-' + g); buzz(g === 'hyper' || g === 'sir' ? [80, 50, 80, 50, 160] : [60]); }
         const hit = g ? `<div class="hitbanner" style="color:var(--${g === 'ultra' ? 'gold' : g})">${{ ultra: '✨ 울트라 레어!', ir: '🎨 일러스트 레어!', sir: '💜 스페셜 일러스트 레어!!', hyper: '👑 하이퍼 레어!!!' }[g]}</div>` : '';
-        setTimeout(() => document.getElementById('ri').innerHTML = `${hit}<div class="rar">${esc(c.name)}</div><div>${esc(c.rarity || '')} · <b>${won(p.krw)}</b></div><div class="muted">탭해서 다음 카드</div>`, 350);
-      } else showCard(i + 1);
-    };
+        document.getElementById('ri').innerHTML = `${hit}<div class="rar">${esc(c.name)}</div><div>${esc(c.rarity || '')} · <b>${won(p.krw)}</b></div><div class="muted">탭해서 다음 카드</div>`;
+        setTimeout(() => { rv.onclick = () => showCard(i + 1); }, 350);   // 여는 동작의 클릭이 바로 넘기지 않게
+      }
+    });
   }
   function showSummary() {
     const total = pack.reduce((s, c) => s + (priceOf(c).krw || 0), 0);
@@ -1128,7 +1139,7 @@ function reveal(c, shot) {
     <div class="evName">${esc(c.name)}${sp ? ' · ' + esc(sp.ko) : ''} — ${esc(c.set.name)} #${esc(c.number)}</div>
     <div class="slip" id="slip">
       <div class="under"><div class="plabel">MARKET PRICE</div><div class="pval" id="pval">${p.krw != null ? won(p.krw) : '시세 없음'}</div><div class="psub" id="psub" style="visibility:hidden">${p.usd != null ? usd(p.usd) + ' · TCGplayer' : p.eur != null ? eur(p.eur) + ' · Cardmarket' : ''}</div></div>
-      <div class="cover" id="cover"><span class="hint">⬆ 천천히 밀어 올려 쪼아보세요</span></div>
+      <div class="cover" id="cover"><span class="hint">⬆⬇ 위나 아래를 잡고 천천히 들어 쪼아보세요</span></div>
     </div>
     <div class="evVerdict" id="evVerdict"></div>
     <div id="evMore" class="evEnd"></div>`;
@@ -1144,32 +1155,46 @@ function reveal(c, shot) {
   squeeze(c, p);
 }
 
-function squeeze(c, p) {
-  const cover = document.getElementById('cover');
-  const FULL = 240, OPEN_AT = .72;
-  let y0 = null, prog = 0, lastStep = 0, done = false;
+// 쪼기: 덮개의 아래쪽을 잡으면 위로, 위쪽을 잡으면 아래로 조금씩 들어 올린다.
+// openAt 넘게 들고 놓으면 완전히 열리고, 덜 들면 다시 내려앉는다. onTap이 있으면 탭으로 바로 열기.
+function makeSqueeze(cover, { full = 240, openAt = .72, onOpen, onTap } = {}) {
+  let y0 = null, from = 'bottom', prog = 0, lastStep = 0, done = false, moved = false;
   const set = v => {
     prog = v;
-    cover.style.transform = `rotateX(${-v * 88}deg)`;
+    cover.dataset.from = from;
+    cover.style.transformOrigin = from === 'bottom' ? '50% 0%' : '50% 100%';
+    cover.style.transform = `rotateX(${(from === 'bottom' ? -1 : 1) * v * 88}deg)`;
     cover.style.setProperty('--shade', (v * .7).toFixed(2));
     const stepN = Math.floor(v * 12);
-    if (stepN !== lastStep) { lastStep = stepN; sfx.tick(v); buzz(8 + stepN * 2); if (stepN % 3 === 0) sfx.beat(v); }
+    if (stepN !== lastStep) { lastStep = stepN; sfx.tick(v); buzz(8 + stepN * 2); if (stepN && stepN % 3 === 0) sfx.beat(v); }
   };
-  cover.onpointerdown = e => { if (done) return; y0 = e.clientY; cover.classList.remove('back'); cover.setPointerCapture(e.pointerId); cover.querySelector('.hint')?.remove(); };
+  const open = () => { if (done) return; done = true; cover.dataset.from = from; cover.classList.remove('back'); cover.classList.add('gone'); onOpen && onOpen(); };
+  cover.onpointerdown = e => {
+    if (done) return;
+    const r = cover.getBoundingClientRect();
+    from = e.clientY - r.top > r.height / 2 ? 'bottom' : 'top';
+    y0 = e.clientY; moved = false;
+    cover.classList.remove('back'); cover.setPointerCapture(e.pointerId);
+  };
   cover.onpointermove = e => {
     if (y0 == null || done) return;
-    const d = Math.max(0, y0 - e.clientY);
-    set(Math.min(1, Math.pow(d / FULL, 1.25)));   // 처음엔 뻑뻑하게
+    const raw = e.clientY - y0;
+    if (Math.abs(raw) > 6 && !moved) { moved = true; cover.querySelector('.hint')?.remove(); }
+    const d = Math.max(0, from === 'bottom' ? -raw : raw);
+    set(Math.min(1, Math.pow(d / full, 1.25)));   // 처음엔 뻑뻑하게
   };
   const release = () => {
     if (y0 == null || done) return; y0 = null;
-    if (prog >= OPEN_AT) finish();
+    if (!moved && onTap) return onTap(open);
+    if (prog >= openAt) open();
     else { cover.classList.add('back'); set(0); }
   };
   cover.onpointerup = release; cover.onpointercancel = release;
+  return { open };
+}
+function squeeze(c, p) {
+  const cover = document.getElementById('cover');
   const finish = () => {
-    done = true;
-    cover.classList.add('gone');
     const v = VERDICT.find(x => (p.krw ?? 0) < x.max);
     countUp(document.getElementById('pval'), p.krw);
     setTimeout(() => document.getElementById('psub').style.visibility = '', 900);
@@ -1184,6 +1209,7 @@ function squeeze(c, p) {
       showEvMore(c, p);
     }, 750);
   };
+  makeSqueeze(cover, { onOpen: finish });
 }
 function countUp(el, target) {
   if (target == null) return;
