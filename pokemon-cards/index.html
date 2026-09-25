@@ -197,7 +197,7 @@ footer a { color: var(--muted); }
 </main>
 
 <footer>
-  카드 데이터·영문판 시세: <a href="https://pokemontcg.io" target="_blank" rel="noopener">Pokémon TCG API</a> (TCGplayer USD · Cardmarket EUR) ·
+  카드 데이터·영문판 시세: <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> (TCGplayer USD · Cardmarket EUR) ·
   이름: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokeAPI</a> ·
   팩 정가: 2026-09 조사 (한국 공식 가격 공지·일본 공식 희망소매가 기준) ·
   뽑기 확률은 공식 비공개라 커뮤니티 추정치예요. 가상 개봉은 실제 결제가 없어요.<br>
@@ -215,9 +215,9 @@ const NAMES = [[1,"Bulbasaur","이상해씨","フシギダネ"],[2,"Ivysaur","�
 </script>
 <script>
 // ================= 설정·저장 =================
-const API = 'https://api.pokemontcg.io/v2';
+const API = 'https://api.tcgdex.net/v2/en';
 const LS = 'pkm-card-pack-v1';
-const DEF = { apiKey: '', usdKrw: 1400, eurKrw: 1600, jpyKrw: 9.5, region: 'kr' };
+const DEF = { usdKrw: 1400, eurKrw: 1600, jpyKrw: 9.5, region: 'kr' };
 function loadStore() { try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch { return {}; } }
 let store = Object.assign({ settings: { ...DEF }, binder: {}, opened: 0, spentIfReal: 0, myPrices: {}, collection: {}, sound: true }, loadStore());
 store.settings = Object.assign({ ...DEF }, store.settings);
@@ -276,7 +276,7 @@ function tierOf(r) {
   if (r.includes('promo')) return 'promo';
   if (r.includes('special illustration')) return 'sir';
   if (r.includes('illustration')) return 'ir';
-  if (/hyper|secret|rainbow|gold|mega hyper/.test(r)) return 'hyper';
+  if (/hyper|secret|rainbow|gold|crown/.test(r)) return 'hyper';
   if (r.includes('ace spec')) return 'ace';
   if (r.includes('double')) return 'double';
   if (/ultra|vmax|vstar|holo v|holo gx|holo ex|full art|break|prime|legend|star|lv\.x/.test(r)) return 'ultra';
@@ -291,22 +291,22 @@ function tierOf(r) {
 const JP_PRICE = { '拡張パック': 180, '強化拡張パック': 180, 'ハイクラスパック': 550 };
 const KR_PRICE = { '확장팩': 1000, '강화 확장팩': 1000, '하이클래스팩': 5000 };
 const REGION = {
-  me1:        { jp: ['メガブレイブ', 'メガシンフォニア'], jpT: '拡張パック', kr: ['메가브레이브', '메가심포니아'], krT: '확장팩' },
-  sv10:       { jp: ['ロケット団の栄光'], jpT: '拡張パック', kr: ['로켓단의 영광'], krT: '확장팩' },
-  sv9:        { jp: ['バトルパートナーズ'], jpT: '拡張パック', kr: ['배틀파트너즈'], krT: '확장팩' },
-  sv8pt5:     { jp: ['テラスタルフェスex'], jpT: 'ハイクラスパック', kr: ['테라스탈 페스타 ex'], krT: '하이클래스팩' },
-  sv8:        { jp: ['超電ブレイカー'], jpT: '拡張パック', kr: ['초전브레이커'], krT: '확장팩' },
-  sv7:        { jp: ['ステラミラクル', '楽園ドラゴーナ'], jpT: '拡張パック', kr: ['스텔라미라클', '낙원드래고나'], krT: '확장팩' },
-  sv6pt5:     { jp: ['ナイトワンダラー'], jpT: '強化拡張パック', kr: ['나이트원더러'], krT: '강화 확장팩' },
-  sv6:        { jp: ['変幻の仮面'], jpT: '拡張パック', kr: ['변환의 가면'], krT: '확장팩' },
-  sv5:        { jp: ['ワイルドフォース', 'サイバージャッジ'], jpT: '拡張パック', kr: ['와일드포스', '사이버저지'], krT: '확장팩' },
-  sv4pt5:     { jp: ['シャイニートレジャーex'], jpT: 'ハイクラスパック', kr: ['샤이니 트레저 ex'], krT: '하이클래스팩' },
-  sv4:        { jp: ['古代の咆哮', '未来の一閃'], jpT: '拡張パック', kr: ['고대의 포효', '미래의 일섬'], krT: '확장팩' },
-  sv3pt5:     { jp: ['ポケモンカード151'], jpT: '強化拡張パック', jpP: null, kr: ['포켓몬 카드 151'], krT: '강화 확장팩', krP: 2500 },
-  sv3:        { jp: ['黒炎の支配者'], jpT: '拡張パック', kr: ['흑염의 지배자'], krT: '확장팩' },
-  sv2:        { jp: ['スノーハザード', 'クレイバースト'], jpT: '拡張パック', kr: ['스노해저드', '클레이버스트'], krT: '확장팩' },
-  sv1:        { jp: ['スカーレットex', 'バイオレットex'], jpT: '拡張パック', kr: ['스칼렛 ex', '바이올렛 ex'], krT: '확장팩' },
-  swsh12pt5:  { jp: ['VSTARユニバース'], jpT: 'ハイクラスパック', kr: ['VSTAR 유니버스'], krT: '하이클래스팩' }
+  'me01':     { jp: ['メガブレイブ', 'メガシンフォニア'], jpT: '拡張パック', kr: ['메가브레이브', '메가심포니아'], krT: '확장팩' },
+  'sv10':     { jp: ['ロケット団の栄光'], jpT: '拡張パック', kr: ['로켓단의 영광'], krT: '확장팩' },
+  'sv09':     { jp: ['バトルパートナーズ'], jpT: '拡張パック', kr: ['배틀파트너즈'], krT: '확장팩' },
+  'sv08.5':   { jp: ['テラスタルフェスex'], jpT: 'ハイクラスパック', kr: ['테라스탈 페스타 ex'], krT: '하이클래스팩' },
+  'sv08':     { jp: ['超電ブレイカー'], jpT: '拡張パック', kr: ['초전브레이커'], krT: '확장팩' },
+  'sv07':     { jp: ['ステラミラクル', '楽園ドラゴーナ'], jpT: '拡張パック', kr: ['스텔라미라클', '낙원드래고나'], krT: '확장팩' },
+  'sv06.5':   { jp: ['ナイトワンダラー'], jpT: '強化拡張パック', kr: ['나이트원더러'], krT: '강화 확장팩' },
+  'sv06':     { jp: ['変幻の仮面'], jpT: '拡張パック', kr: ['변환의 가면'], krT: '확장팩' },
+  'sv05':     { jp: ['ワイルドフォース', 'サイバージャッジ'], jpT: '拡張パック', kr: ['와일드포스', '사이버저지'], krT: '확장팩' },
+  'sv04.5':   { jp: ['シャイニートレジャーex'], jpT: 'ハイクラスパック', kr: ['샤이니 트레저 ex'], krT: '하이클래스팩' },
+  'sv04':     { jp: ['古代の咆哮', '未来の一閃'], jpT: '拡張パック', kr: ['고대의 포효', '미래의 일섬'], krT: '확장팩' },
+  'sv03.5':   { jp: ['ポケモンカード151'], jpT: '強化拡張パック', jpP: null, kr: ['포켓몬 카드 151'], krT: '강화 확장팩', krP: 2500 },
+  'sv03':     { jp: ['黒炎の支配者'], jpT: '拡張パック', kr: ['흑염의 지배자'], krT: '확장팩' },
+  'sv02':     { jp: ['スノーハザード', 'クレイバースト'], jpT: '拡張パック', kr: ['스노해저드', '클레이버스트'], krT: '확장팩' },
+  'sv01':     { jp: ['スカーレットex', 'バイオレットex'], jpT: '拡張パック', kr: ['스칼렛 ex', '바이올렛 ex'], krT: '확장팩' },
+  'swsh12.5': { jp: ['VSTARユニバース'], jpT: 'ハイクラスパック', kr: ['VSTAR 유니버스'], krT: '하이클래스팩' }
 };
 const EN_MSRP = 4.49;
 function packPrices(set) {
@@ -344,40 +344,72 @@ const eur = n => n == null ? '—' : '€' + n.toFixed(2);
 const yen = n => n == null ? '—' : '¥' + Math.round(n).toLocaleString('ja-JP');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
-// ================= API =================
+// ================= API (TCGdex) =================
+// 목록 API는 요약(id·번호·이름·이미지)만 주므로, 레어도·시세는 카드별 상세를 동시에 여러 개 불러온다.
 const cache = new Map();
-async function api(path, params) {
-  const url = API + path + '?' + new URLSearchParams(params);
+async function api(path, params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  const url = API + path + (qs ? '?' + qs : '');
   if (cache.has(url)) return cache.get(url);
-  const headers = S().apiKey ? { 'X-Api-Key': S().apiKey } : {};
-  const p = fetch(url, { headers }).then(r => { if (!r.ok) throw new Error('API ' + r.status); return r.json(); });
+  const p = fetch(url).then(r => { if (!r.ok) throw new Error('API ' + r.status); return r.json(); });
   cache.set(url, p);
   p.catch(() => cache.delete(url));
   return p;
 }
-const SELECT = 'id,name,supertype,rarity,number,set,images,tcgplayer,cardmarket';
-async function cardsOfSpecies(sp) {
-  const token = norm(sp.en).split(' ').sort((a, b) => b.length - a.length)[0].replace(/'/g, '');
-  const res = await api('/cards', { q: `name:*${token}*`, pageSize: 250, orderBy: '-set.releaseDate', select: SELECT });
-  const re = new RegExp(`(^|[^a-z])${norm(sp.en).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`);
-  return res.data.filter(c => re.test(norm(c.name)));
+// TCGdex에는 모바일 게임 'TCG 포켓' 카드도 섞여 있다 (세트 A1, A2a, B1, P-A …) → 제외
+const isPocket = id => /^(A\d|B\d|P-A)/i.test(id || '');
+const imgUrl = (base, q) => base ? `${base}/${q}.webp` : '';
+function normSet(s) {
+  return { id: s.id, name: s.name, series: s.serie?.name || '', releaseDate: s.releaseDate || '',
+    printedTotal: s.cardCount?.official ?? '', total: s.cardCount?.total ?? '', images: { logo: s.logo ? s.logo + '.png' : '' } };
 }
-async function cardsOfSet(id) {
-  const all = [];
-  for (let page = 1; page < 6; page++) {
-    const res = await api('/cards', { q: `set.id:${id}`, pageSize: 250, page, select: SELECT });
-    all.push(...res.data);
-    if (res.data.length < 250) break;
+function normCard(c) {
+  const tp = c.pricing?.tcgplayer, cm = c.pricing?.cardmarket, prices = {};
+  if (tp) for (const [k, v] of Object.entries(tp)) if (v && typeof v === 'object') prices[k] = { market: v.marketPrice ?? null, mid: v.midPrice ?? null };
+  return {
+    id: c.id, name: c.name, rarity: c.rarity && c.rarity !== 'None' ? c.rarity : '', number: c.localId,
+    set: normSet(c.set || {}), images: { small: imgUrl(c.image, 'low'), large: imgUrl(c.image, 'high') },
+    tcgplayer: tp ? { prices } : null,
+    cardmarket: cm ? { prices: { trendPrice: cm.trend ?? null, averageSellPrice: cm.avg ?? null } } : null
+  };
+}
+const full = new Map();
+function fetchCard(id) {
+  if (!full.has(id)) {
+    const p = api('/cards/' + encodeURIComponent(id)).then(normCard);
+    full.set(id, p); p.catch(() => full.delete(id));
   }
-  return all;
+  return full.get(id);
 }
-async function setById(id) { return (await api('/sets/' + id, {})).data; }
-async function allSets() { return (await api('/sets', { orderBy: '-releaseDate', pageSize: 250 })).data; }
+// 동시 10개씩, 진행률 콜백
+async function fullCards(briefs, onProgress) {
+  const out = new Array(briefs.length); let i = 0, done = 0;
+  const worker = async () => {
+    while (i < briefs.length) {
+      const k = i++;
+      out[k] = await fetchCard(briefs[k].id).catch(() => null);
+      onProgress && onProgress(++done, briefs.length);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(10, briefs.length) }, worker));
+  return out.filter(Boolean);
+}
+function progress(label) { return (n, t) => { const el = document.querySelector('.status'); if (el) el.textContent = `${label} ${n}/${t}`; }; }
+async function cardsOfSpecies(sp, keep = () => true) {
+  const token = norm(sp.en).split(' ').sort((a, b) => b.length - a.length)[0].replace(/'/g, '');
+  const briefs = await api('/cards', { name: token });
+  const re = new RegExp(`(^|[^a-z])${norm(sp.en).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`);
+  return fullCards(briefs.filter(c => !isPocket(c.id) && re.test(norm(c.name)) && keep(c)), progress(`${sp.ko} 카드 불러오는 중`));
+}
+async function setRaw(id) { return api('/sets/' + encodeURIComponent(id)); }
+async function cardsOfSet(id) { return fullCards((await setRaw(id)).cards || [], progress('수록 카드 불러오는 중')); }
+async function setById(id) { return normSet(await setRaw(id)); }
+async function allSets() { return (await api('/sets')).filter(x => !isPocket(x.id)).map(normSet).reverse(); }
 
 // ================= 화면 공통 =================
 const view = document.getElementById('view');
 const status = (msg) => view.innerHTML = `<div class="status">${msg}</div>`;
-const fail = (e) => status(`불러오지 못했어요 😢<br><span class="muted">${esc(e.message)} · 잠시 뒤 다시 시도하거나 ⚙️에서 API 키를 넣어보세요.</span>`);
+const fail = (e) => status(`불러오지 못했어요 😢<br><span class="muted">${esc(e.message)} · 잠시 뒤 다시 시도해주세요.</span>`);
 function imgTag(src, alt, cls = '') { return `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" loading="lazy" onerror="this.style.visibility='hidden'">`; }
 function tileHtml(c, extra = '') {
   const p = priceOf(c), t = tierOf(c.rarity);
@@ -447,7 +479,7 @@ async function renderSearch(q) {
 // ================= 2. 카드 상세 =================
 async function renderCard(id) {
   let c = cardIndex.get(id);
-  if (!c) { status('카드 불러오는 중…'); c = remember([(await api('/cards/' + id, { select: SELECT })).data])[0]; }
+  if (!c) { status('카드 불러오는 중…'); c = remember([await fetchCard(id)])[0]; }
   const p = priceOf(c), t = tierOf(c.rarity), sp = speciesOfCard(c.name);
   const my = store.myPrices['card:' + c.id] || {};
   const ab = TIERS[t].ab;
@@ -474,13 +506,13 @@ async function renderCard(id) {
       </table>
       <p class="muted">일본·한국판 카드별 시세는 공개 API가 없어서, 링크로 확인한 가격을 적어두면 저장돼요. 일본·한국판은 카드 번호가 달라서 이름과 레어도(${ab})로 검색해요.</p>
       <h3>📦 이 카드가 나오는 팩</h3>
-      <div id="packBox" class="muted">팩 정보 계산 중…</div>
+      <div id="packBox"><div class="status">팩 정보 계산 중…</div></div>
     </div></div>`;
   view.querySelectorAll('[data-my]').forEach(inp => inp.onchange = () => {
     const k = 'card:' + c.id, v = inp.value === '' ? undefined : +inp.value;
     store.myPrices[k] = Object.assign({}, store.myPrices[k], { [inp.dataset.my]: v }); save(); renderCard(id);
   });
-  const set = c.set, setCards = remember(await cardsOfSet(set.id));
+  const [set, setCards] = await Promise.all([setById(c.set.id), cardsOfSet(c.set.id).then(remember)]);
   const tierCount = setCards.filter(x => tierOf(x.rarity) === t).length || 1;
   const rate = TIERS[t].rate;
   const pk = packKrw(set);
@@ -651,7 +683,7 @@ async function renderSets() {
   view.innerHTML = `<div class="card"><h2>📦 팩 둘러보기</h2><p class="muted" style="margin:0">최신순 · ⭐ 표시는 일본·한국판 대응 팩 정보가 있는 팩이에요.</p></div>
     <div class="grid">${sets.map(s => `<button class="tile" data-set="${esc(s.id)}" style="text-align:center">
       <div style="height:70px;display:flex;align-items:center;justify-content:center">${imgTag(s.images.logo, s.name).replace('<img', '<img style="max-height:64px;max-width:100%;aspect-ratio:auto;background:none"')}</div>
-      <div class="nm">${REGION[s.id] ? '⭐ ' : ''}${esc(s.name)}</div><div class="muted" style="font-size:.78rem">${esc(s.releaseDate)}</div></button>`).join('')}</div>`;
+      <div class="nm">${REGION[s.id] ? '⭐ ' : ''}${esc(s.name)}</div><div class="muted" style="font-size:.78rem">${esc(s.total)}종</div></button>`).join('')}</div>`;
 }
 
 // ================= 6. 바인더 =================
@@ -676,14 +708,13 @@ document.getElementById('settingsBtn').onclick = () => {
       <tr><th>1 USD</th><td><input id="s1" type="number" value="${s.usdKrw}"> 원</td></tr>
       <tr><th>1 EUR</th><td><input id="s2" type="number" value="${s.eurKrw}"> 원</td></tr>
       <tr><th>1 JPY</th><td><input id="s3" type="number" step="0.01" value="${s.jpyKrw}"> 원</td></tr>
-      <tr><th>API 키</th><td><input id="s4" value="${esc(s.apiKey)}" placeholder="선택 (pokemontcg.io)"></td></tr>
     </table>
-    <p class="muted">환율은 직접 맞춰주세요. API 키가 없어도 되지만, 느리거나 막히면 <a href="https://dev.pokemontcg.io" target="_blank" rel="noopener">무료 키</a>를 넣어보세요.</p>
+    <p class="muted">환율은 직접 맞춰주세요.</p>
     <div class="row"><button class="ghost" id="resetB" style="flex:1">바인더 비우기</button><button id="saveS" style="flex:1">저장</button></div></div>`;
   modal.classList.remove('hidden');
   modal.onclick = e => { if (e.target === modal) modal.classList.add('hidden'); };
   document.getElementById('saveS').onclick = () => {
-    Object.assign(s, { usdKrw: +document.getElementById('s1').value || DEF.usdKrw, eurKrw: +document.getElementById('s2').value || DEF.eurKrw, jpyKrw: +document.getElementById('s3').value || DEF.jpyKrw, apiKey: document.getElementById('s4').value.trim() });
+    Object.assign(s, { usdKrw: +document.getElementById('s1').value || DEF.usdKrw, eurKrw: +document.getElementById('s2').value || DEF.eurKrw, jpyKrw: +document.getElementById('s3').value || DEF.jpyKrw });
     save(); cache.clear(); modal.classList.add('hidden'); route();
   };
   document.getElementById('resetB').onclick = () => {
@@ -880,13 +911,16 @@ async function readCard(card) {
 async function lookup({ sp, no }) {
   let list = [];
   if (no) {
-    const q = `number:${no.num}` + (no.total ? ` set.printedTotal:${no.total}` : '');
-    list = (await api('/cards', { q, pageSize: 60, orderBy: '-set.releaseDate', select: SELECT })).data;
+    // 인쇄된 총 장수(165 등)가 같은 세트들에서 "세트ID-번호" 카드를 직접 조회
+    const sets = no.total ? (await api('/sets')).filter(x => !isPocket(x.id) && x.cardCount?.official === no.total).slice(-15) : [];
+    const ids = [...new Set(sets.flatMap(x => [`${x.id}-${no.num}`, `${x.id}-${no.num.padStart(3, '0')}`]))];
+    list = (await Promise.all(ids.map(id => fetchCard(id).catch(() => null)))).filter(Boolean).reverse();
     if (sp) { const hit = list.filter(c => speciesOfCard(c.name)?.id === sp.id); if (hit.length) list = hit; }
   }
   if (!list.length && sp) {
-    list = await cardsOfSpecies(sp);
-    if (no) { const hit = list.filter(c => c.number === no.num); if (hit.length) list = hit; }
+    const same = c => !no || String(c.localId).replace(/^0+/, '') === no.num.replace(/^0+/, '');
+    list = await cardsOfSpecies(sp, same);
+    if (!list.length && no) list = await cardsOfSpecies(sp);
   }
   return remember(list);
 }
