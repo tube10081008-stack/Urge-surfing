@@ -241,6 +241,13 @@ footer a { color: var(--muted); }
 .evInfo td, .evInfo th { border-color: rgba(255,255,255,.12); color: #e6e9f5; }
 .evBtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
 .evBtns .ghost { background: var(--fx-btn); color: #fff; }
+.gradeHead { display: flex; gap: 14px; align-items: center; }
+.gradeBig { width: 64px; height: 64px; border-radius: 16px; display: grid; place-items: center; font-size: 2.2rem; font-weight: 900; color: #fff; flex: none; }
+.g-S { background: linear-gradient(135deg, #7b2cbf, #ff4fd8); } .g-A { background: #2e9e6a; } .g-B { background: #d9a400; } .g-C { background: #d12f2f; }
+.condTag { display: inline-block; color: #fff; font-weight: 800; font-size: .7rem; padding: 0 6px; border-radius: 6px; }
+.gradeImgs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.gradeImgs figure { margin: 0; text-align: center; } .gradeImgs canvas { width: 100%; height: auto; border-radius: 8px; background: #000; }
+.gradeImgs figcaption { font-size: .8rem; color: var(--muted); }
 .evPick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
 .evPick span { color: #aab; font-size: .8rem; width: 2.6em; }
 .evPick button { padding: 5px 10px; font-size: .8rem; background: var(--fx-btn); color: #fff; font-weight: 500; }
@@ -697,7 +704,7 @@ async function route() {
   const arg = raw ? decodeURIComponent(raw) : '';
   const tab = { sets: 'sets', set: 'sets', scan: 'scan', binder: '' }[page] ?? 'search';
   document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.setAttribute('aria-selected', b.dataset.tab === tab); });
-  if (page !== 'scan') stopCamera();
+  if (page !== 'scan') { stopCamera(); scanMode = null; }
   window.scrollTo(0, 0);
   try {
     if (page === 'scan') return await renderScan();
@@ -1104,7 +1111,7 @@ function renderBinder() {
       : '<div class="status">아직 카드가 없어요. 팩을 개봉해보세요!</div>'}
     <div class="card" style="margin-top:14px"><h2>📷 스캔한 실물 카드</h2>
     <p class="muted" style="margin:0">${Object.keys(store.collection).length}종 · 스캔 당시 시세 합계 <b>${won(Object.values(store.collection).reduce((s, c) => s + (c.krw || 0) * c.n, 0))}</b></p></div>
-    ${Object.keys(store.collection).length ? `<div class="grid">${Object.entries(store.collection).sort((a, b) => (b[1].krw || 0) - (a[1].krw || 0)).map(([id, c]) => `<button class="tile" data-card="${esc(id)}">${imgTag(c.img, c.name)}<div class="nm">${esc(c.name)}${c.n > 1 ? ` ×${c.n}` : ''}</div><div class="muted" style="font-size:.78rem">${esc(c.set)} · ${esc(c.date)}${c.grade && c.grade !== '미등급' ? ' · ' + esc(c.grade) : c.variant ? ' · ' + esc(c.variant) : ''}</div><div class="pr"><b>${won(c.krw)}</b></div></button>`).join('')}</div>` : '<div class="status">스캔 탭에서 실물 카드를 찍어보세요.</div>'}`;
+    ${Object.keys(store.collection).length ? `<div class="grid">${Object.entries(store.collection).sort((a, b) => (b[1].krw || 0) - (a[1].krw || 0)).map(([id, c]) => `<button class="tile" data-card="${esc(id)}">${imgTag(c.img, c.name)}<div class="nm">${esc(c.name)}${c.n > 1 ? ` ×${c.n}` : ''}</div><div class="muted" style="font-size:.78rem">${c.cond ? `<span class="condTag g-${c.cond}">${c.cond}</span> ` : ''}${esc(c.set)} · ${esc(c.date)}${c.grade && c.grade !== '미등급' ? ' · ' + esc(c.grade) : c.variant ? ' · ' + esc(c.variant) : ''}</div><div class="pr"><b>${won(c.krw)}</b></div></button>`).join('')}</div>` : '<div class="status">스캔 탭에서 실물 카드를 찍어보세요.</div>'}`;
 }
 view.addEventListener('click', e => { const b = e.target.closest('[data-sort]'); if (b) { store.binderSort = b.dataset.sort; save(); renderBinder(); } });
 const ORDER = ['promo', 'common', 'uncommon', 'rare', 'ace', 'double', 'special', 'shiny', 'chr', 'ultra', 'ssr', 'ir', 'csr', 'sir', 'hyper', 'mur'];
@@ -1152,11 +1159,14 @@ function stopCamera() {
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden && location.hash.startsWith('#scan')) stopCamera(); });
 
+// 등급 측정 모드: { step: 'front' | 'back', card, front } — 앞면을 찍고 뒷면을 찍으면 등급 계산
+let scanMode = null, lastFront = null;
 async function renderScan() {
   stopCamera();
+  const gm = scanMode;
   view.innerHTML = `<div class="card">
-    <h2>📷 카드 스캔</h2>
-    <p class="muted" style="margin:0 0 12px">카드를 어두운 바닥에 놓고, 틀 네 모서리가 초록색이 될 때까지 맞춰주세요. 자동으로 찍혀요. 슬리브·탑로더는 빼면 더 잘 읽혀요 · 영문판 카드 기준이에요.</p>
+    <h2>${gm ? `📐 등급 측정 · ${gm.step === 'front' ? '① 앞면' : '② 뒷면'}` : '📷 카드 스캔'}</h2>
+    <p class="muted" style="margin:0 0 12px">${gm ? (gm.step === 'front' ? '카드 <b>앞면</b>을 틀에 맞춰주세요.' : `이제 카드를 뒤집어 <b>뒷면</b>을 틀에 맞춰주세요.${gm.card ? ` (${esc(dispName(gm.card))})` : ''}`) + ' 어두운 바닥, 그림자·반사 없는 곳에서 찍을수록 정확해요.' : '카드를 어두운 바닥에 놓고, 틀 네 모서리가 초록색이 될 때까지 맞춰주세요. 자동으로 찍혀요. 슬리브·탑로더는 빼면 더 잘 읽혀요 · 영문판 카드 기준이에요.'}</p>
     <div class="scanbox" id="sbox">
       <video id="vid" playsinline muted autoplay></video>
       <div class="guide" id="guide"><b></b><b></b><b></b><b></b><div class="hold"><i id="holdBar"></i></div></div>
@@ -1169,8 +1179,11 @@ async function renderScan() {
       <button class="ghost" id="sndBtn">${store.sound ? '🔊' : '🔇'}</button>
     </div>
     <input type="file" id="upFile" accept="image/*" capture="environment" hidden>
+    <div class="row" style="justify-content:center;margin-top:10px">${gm ? '<button class="ghost" id="gradeCancel">등급 측정 그만두기</button>' : '<button class="ghost" id="gradeOnly">📐 등급만 측정하기 (앞면 → 뒷면)</button>'}</div>
   </div>
   <div id="scanOut"></div>`;
+  document.getElementById('gradeOnly')?.addEventListener('click', () => { scanMode = { step: 'front', card: null }; renderScan(); });
+  document.getElementById('gradeCancel')?.addEventListener('click', () => { scanMode = null; renderScan(); });
   document.getElementById('upBtn').onclick = () => document.getElementById('upFile').click();
   document.getElementById('upFile').onchange = e => { const f = e.target.files[0]; if (f) fromFile(f); };
   document.getElementById('sndBtn').onclick = e => { store.sound = !store.sound; save(); e.target.textContent = store.sound ? '🔊' : '🔇'; };
@@ -1263,7 +1276,7 @@ function capture(rect) {
   document.getElementById('guide').classList.add('lock');
   sfx.shutter(); buzz(40);
   stopCamera();
-  analyze(card);
+  handleShot(card);
 }
 
 // 사진 파일: 가운데 카드 비율 틀을 기준으로 넓은 띠에서 테두리 탐색
@@ -1281,7 +1294,136 @@ async function fromFile(file) {
   const r = good ? { x: e.left.pos, y: e.top.pos, w: e.right.pos - e.left.pos, h: e.bottom.pos - e.top.pos } : { x: 0, y: 0, w: W, h: H };
   const card = document.createElement('canvas'); card.width = CARD_W; card.height = CARD_H;
   card.getContext('2d').drawImage(img, r.x / k, r.y / k, r.w / k, r.h / k, 0, 0, CARD_W, CARD_H);
-  analyze(card);
+  handleShot(card);
+}
+
+// ================= 컨디션 등급 (중급 카드용) =================
+// 자동으로 재는 건 두 가지: ① 앞·뒷면 센터링(테두리 좌우·상하 비율) ② 뒷면 모서리·테두리 까짐(하얗게 드러난 픽셀 비율).
+// 표면(긁힘·찍힘)은 사진으로 어렵기 때문에 사람이 체크. 고가 카드는 PSA 등 그레이딩 기관 권장.
+const GRADE_KO = { S: '최상', A: '양호', B: '보통', C: '하자' };
+const HIGH_VALUE = 100000;
+function pixelsOf(cv) {
+  const d = cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, CARD_W, CARD_H).data;
+  return (x, y) => { const i = (y * CARD_W + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
+}
+const cdist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const luma = c => c[0] * .299 + c[1] * .587 + c[2] * .114;
+const median = a => { const b = [...a].sort((x, y) => x - y); return b.length ? b[b.length >> 1] : null; };
+// 바깥→안쪽 한 줄에서 (배경→카드) 바깥 가장자리와 (테두리→그림) 안쪽 테두리선을 찾는다
+function borderOnLine(get, pts, th) {
+  let outer = 0, best = 0;
+  const lim = Math.min(pts.length - 8, Math.round(pts.length * .15));   // 바깥 가장자리는 처음 3% 안
+  for (let i = 1; i < lim; i++) {
+    const a = get(...pts[i - 1]), b = get(...pts[i]), g = cdist(a, b);
+    if (g > best && luma(a) < 80) { best = g; outer = i; }
+  }
+  if (best < 45) outer = 0;
+  const s = [0, 0, 0];
+  for (let i = outer + 2; i < outer + 6; i++) { const c = get(...pts[i]); s[0] += c[0]; s[1] += c[1]; s[2] += c[2]; }
+  const bc = s.map(v => v / 4);
+  for (let i = outer + 6, run = 0; i < pts.length; i++) {
+    if (cdist(get(...pts[i]), bc) > th) { if (++run >= 3) return { outer, width: i - 2 - outer }; } else run = 0;
+  }
+  return null;
+}
+function measureCentering(cv, th) {
+  const get = pixelsOf(cv), W = CARD_W, H = CARD_H, res = {};
+  const line = (side, t) => {
+    const n = Math.round((side === 'L' || side === 'R' ? W : H) * .2), pts = [];
+    for (let i = 0; i < n; i++) {
+      if (side === 'L') pts.push([i, Math.round(H * t)]);
+      if (side === 'R') pts.push([W - 1 - i, Math.round(H * t)]);
+      if (side === 'T') pts.push([Math.round(W * t), i]);
+      if (side === 'B') pts.push([Math.round(W * t), H - 1 - i]);
+    }
+    return borderOnLine(get, pts, th);
+  };
+  for (const side of ['L', 'R', 'T', 'B']) {
+    const hits = [];
+    for (let k = 0; k < 31; k++) { const r = line(side, .2 + .6 * k / 30); if (r) hits.push(r); }
+    res[side] = hits.length >= 10 ? { width: median(hits.map(h => h.width)), outer: median(hits.map(h => h.outer)) } : null;
+  }
+  const ok = ['L', 'R', 'T', 'B'].every(k => res[k] && res[k].width > 2);
+  const pct = (a, b) => Math.round(a / (a + b) * 100);
+  return ok ? { ...res, lr: pct(res.L.width, res.R.width), tb: pct(res.T.width, res.B.width) } : { ...res, lr: null, tb: null };
+}
+// 뒷면(파란 테두리)에서 하얗게 드러난 픽셀 비율: 네 모서리 · 네 변
+function measureWear(cv, cen) {
+  const get = pixelsOf(cv), W = CARD_W, H = CARD_H;
+  const x0 = cen.L?.outer || 0, x1 = W - 1 - (cen.R?.outer || 0), y0 = cen.T?.outer || 0, y1 = H - 1 - (cen.B?.outer || 0);
+  const white = c => Math.min(...c) > 170 && Math.max(...c) - Math.min(...c) < 50;
+  const frac = (ax, ay, bx, by) => { let n = 0, w = 0; for (let y = ay; y < by; y += 1) for (let x = ax; x < bx; x += 1) { n++; if (white(get(x, y))) w++; } return n ? w / n : 0; };
+  const c = Math.round(W * .07), e = Math.round(W * .02);
+  const corners = [frac(x0, y0, x0 + c, y0 + c), frac(x1 - c, y0, x1, y0 + c), frac(x0, y1 - c, x0 + c, y1), frac(x1 - c, y1 - c, x1, y1)];
+  const edges = [frac(x0 + c, y0, x1 - c, y0 + e), frac(x0 + c, y1 - e, x1 - c, y1), frac(x0, y0 + c, x0 + e, y1 - c), frac(x1 - e, y0 + c, x1, y1 - c)];
+  return { corners, edges, corner: Math.max(...corners), edge: Math.max(...edges), box: { x0, x1, y0, y1, c } };
+}
+const off = v => v == null ? null : Math.max(v, 100 - v);                 // 58 → 58:42 에서 큰 쪽
+const ratio = v => v == null ? '측정 실패' : `${Math.max(v, 100 - v)}:${Math.min(v, 100 - v)}`;
+function gradeFrom(front, back, wear, flagged) {
+  const f = Math.max(off(front.lr) ?? 0, off(front.tb) ?? 0), b = Math.max(off(back.lr) ?? 0, off(back.tb) ?? 0);
+  const cen = front.lr == null ? 'B' : f <= 60 && b <= 65 ? 'S' : f <= 70 && b <= 75 ? 'A' : 'B';
+  const wr = wear.corner < .005 && wear.edge < .003 ? 'S' : wear.corner < .03 && wear.edge < .015 ? 'A' : wear.corner < .10 && wear.edge < .05 ? 'B' : 'C';
+  const order = ['S', 'A', 'B', 'C'];
+  let g = order[Math.max(order.indexOf(cen), order.indexOf(wr))];
+  if (flagged) g = 'C';
+  return { grade: g, cen, wr, f, b };
+}
+// 찾은 테두리선·까짐 영역을 사진 위에 그려서 보여준다
+function overlay(cv, cen, wear) {
+  const o = document.createElement('canvas'); o.width = CARD_W; o.height = CARD_H;
+  const x = o.getContext('2d'); x.drawImage(cv, 0, 0);
+  const L = cen.L?.outer || 0, R = CARD_W - (cen.R?.outer || 0), T = cen.T?.outer || 0, B = CARD_H - (cen.B?.outer || 0);
+  x.lineWidth = 4; x.strokeStyle = '#38f6ff'; x.strokeRect(L, T, R - L, B - T);
+  if (cen.lr != null) { x.strokeStyle = '#ff4fd8'; x.strokeRect(L + cen.L.width, T + cen.T.width, R - L - cen.L.width - cen.R.width, B - T - cen.T.width - cen.B.width); }
+  if (wear) {
+    const { x0, x1, y0, y1, c } = wear.box, boxes = [[x0, y0], [x1 - c, y0], [x0, y1 - c], [x1 - c, y1 - c]];
+    boxes.forEach(([bx, by], i) => { const v = wear.corners[i]; x.strokeStyle = v < .005 ? '#37e39a' : v < .03 ? '#ffd24a' : '#ff5a5a'; x.lineWidth = 5; x.strokeRect(bx, by, c, c); });
+  }
+  return o;
+}
+function showGrade(c, frontCv, backCv) {
+  const front = measureCentering(frontCv, 45), back = measureCentering(backCv, 36), wear = measureWear(backCv, back);
+  const p = c ? priceOf(c) : { krw: null };
+  const render = flagged => {
+    const g = gradeFrom(front, back, wear, flagged);
+    const pc = v => (v * 100).toFixed(1) + '%';
+    document.getElementById('gradeBox').innerHTML = `
+      <div class="gradeHead"><div class="gradeBig g-${g.grade}">${g.grade}</div>
+        <div><b style="font-size:1.1rem">${GRADE_KO[g.grade]}</b>${c ? `<br><span class="muted">${esc(dispName(c))} · ${esc(c.set.name)} #${esc(c.number)}</span>` : ''}
+        <br><span class="muted" style="font-size:.8rem">센터링 ${g.cen} · 까짐 ${g.wr}${flagged ? ' · 표면 하자 표시' : ''}</span></div></div>
+      ${p.krw != null && p.krw >= HIGH_VALUE ? `<p class="warn">💎 시세 ${won(p.krw)}의 고가 카드예요. PSA·BGS 같은 그레이딩 기관 등급을 추천해요 (자체 등급은 중급 카드용).</p>` : ''}
+      <table style="margin-top:8px">
+        <tr><th>앞면 센터링</th><td>좌우 <b>${ratio(front.lr)}</b> · 상하 <b>${ratio(front.tb)}</b></td></tr>
+        <tr><th>뒷면 센터링</th><td>좌우 <b>${ratio(back.lr)}</b> · 상하 <b>${ratio(back.tb)}</b></td></tr>
+        <tr><th>모서리 까짐</th><td>최대 <b>${pc(wear.corner)}</b> <span class="muted">(${wear.corners.map(pc).join(' · ')})</span></td></tr>
+        <tr><th>테두리 까짐</th><td>최대 <b>${pc(wear.edge)}</b></td></tr>
+      </table>
+      <p class="muted" style="font-size:.8rem;margin:6px 0 0">기준 · S: 앞 60:40·뒤 65:35 이내 + 까짐 거의 없음 · A: 앞 70:30·뒤 75:25 이내 + 까짐 조금 · B: 그 이상 · C: 접힘·찍힘·심한 까짐<br>
+        하늘색 = 카드 바깥선, 분홍 = 찾은 안쪽 테두리선, 모서리 네모 = 까짐(초록 없음 · 노랑 조금 · 빨강 많음). 선이 엉뚱하면 다시 찍어주세요.</p>`;
+    return g;
+  };
+  view.innerHTML = `<div class="card"><h2>📐 컨디션 등급</h2>
+    <div id="gradeBox"></div>
+    <div class="gradeImgs"><figure><figcaption>앞면</figcaption></figure><figure><figcaption>뒷면</figcaption></figure></div>
+    <label style="display:block;margin:10px 0"><input type="checkbox" id="flagC"> 접힘·찍힘·깊은 긁힘이 있어요 <span class="muted">(사진으로 잘 안 보여서 직접 체크)</span></label>
+    <div class="row">${c ? '<button id="gSave" style="flex:1">💾 이 등급으로 컬렉션에 저장</button>' : ''}<button class="ghost" id="gAgain" style="flex:1">🔁 다시 측정</button><button class="ghost" id="gNext" style="flex:1">📷 다음 카드</button></div>
+    <p class="muted" style="font-size:.78rem;margin-top:10px">폰 사진은 조명·각도에 따라 오차가 있어요. 보관 서비스에서는 입고 장비로 다시 측정한 값이 공식 등급이 돼요.</p></div>`;
+  const figs = view.querySelectorAll('.gradeImgs figure');
+  figs[0].prepend(overlay(frontCv, front, null)); figs[1].prepend(overlay(backCv, back, wear));
+  let g = render(false);
+  document.getElementById('flagC').onchange = e => { g = render(e.target.checked); };
+  document.getElementById('gAgain').onclick = () => { scanMode = { step: 'front', card: c }; renderScan(); };
+  document.getElementById('gNext').onclick = () => { scanMode = null; renderScan(); };
+  document.getElementById('gSave')?.addEventListener('click', e => {
+    const x = store.collection[c.id] || { n: 0, name: dispName(c), img: c.images.small, set: c.set.name, krw: p.krw, date: new Date().toLocaleDateString('ko-KR') };
+    if (!x.n) x.n = 1;
+    // 센터링 수치는 나중에 입고 대조(같은 실물인지)에 쓰는 지문
+    Object.assign(x, { cond: g.grade, condAt: new Date().toLocaleDateString('ko-KR'), finger: { f: [front.lr, front.tb], b: [back.lr, back.tb] } });
+    store.collection[c.id] = x; save();
+    e.target.textContent = `✔ ${g.grade} 등급으로 저장했어요`; e.target.disabled = true;
+  });
+  sfx.win(1);
 }
 
 // ---------- OCR (Tesseract.js, 처음 한 번만 내려받음) ----------
@@ -1345,6 +1487,13 @@ async function lookup({ sp, no }) {
   return remember(list);
 }
 
+// 찍힌 카드를 어디로 보낼지: 등급 측정 중이면 앞면 저장 → 뒷면 → 등급, 아니면 판독
+function handleShot(card) {
+  if (scanMode?.step === 'front') { scanMode = { ...scanMode, front: card, step: 'back' }; sfx.tick(.5); return renderScan(); }
+  if (scanMode?.step === 'back') { const m = scanMode; scanMode = null; return showGrade(m.card, m.front, card); }
+  lastFront = card;
+  analyze(card);
+}
 async function analyze(card) {
   const box = document.getElementById('sbox'), out = document.getElementById('scanOut');
   if (!box) return;
@@ -1545,6 +1694,7 @@ function showEvMore(c, p) {
     <div class="evBtns">
       <button id="evKeep">${have ? `📒 한 장 더 추가 (보유 ${have.n})` : '📒 내 컬렉션에 추가'}</button>
       <button class="ghost" id="evDetail">카드 상세</button>
+      <button class="ghost" id="evGrade">📐 등급 측정 (뒷면 찍기)</button>
       <button class="ghost" id="evAgain">📷 다음 카드</button>
     </div>`;
   const current = () => {
@@ -1569,6 +1719,7 @@ function showEvMore(c, p) {
   };
   document.getElementById('evDetail').onclick = () => { close(); go('card', c.id); };
   document.getElementById('evAgain').onclick = () => { close(); renderScan(); };
+  document.getElementById('evGrade').onclick = () => { close(); scanMode = lastFront ? { step: 'back', card: c, front: lastFront } : { step: 'front', card: c }; renderScan(); };
 }
 
 route();
