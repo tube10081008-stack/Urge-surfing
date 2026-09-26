@@ -133,6 +133,11 @@ alter table public.listings add column if not exists bid_count int not null defa
 alter table public.listings drop constraint if exists listings_status_check;
 alter table public.listings add constraint listings_status_check check (status in ('active', 'sold', 'cancelled', 'expired'));
 
+-- v3: 스캐너 연동 — 유저 스캔 지문(user_finger) vs 입고 스캔 지문(intake_finger) 대조
+alter table public.batch_items add column if not exists intake_finger jsonb;
+alter table public.batch_items add column if not exists match jsonb;              -- 대조 결과 {art, cen, verdict, msg}
+alter table public.vault_items add column if not exists scan_verified boolean not null default false;  -- 유저 스캔 ↔ 입고 스캔 일치
+
 create table if not exists public.bids (
   id          bigserial primary key,
   listing_id  uuid not null references public.listings(id),
@@ -358,6 +363,7 @@ create or replace function public._seller_stats(p_user uuid) returns json langua
     'sales', (select count(*) from public.trades where seller = p_user),
     'checked', (select count(*) from public.batch_items where owner = p_user and status <> 'pending'),
     'matched', (select count(*) from public.batch_items where owner = p_user and status = 'matched'),
+    'scanned', (select count(*) from public.vault_items vi join public.batch_items bi on bi.id = vi.batch_item_id where bi.owner = p_user and vi.scan_verified),
     'trust', (select trust from public.profiles where id = p_user),
     'since', (select created_at from public.profiles where id = p_user))
 $$;
@@ -368,7 +374,7 @@ begin
   return (select coalesce(json_agg(r order by r.sort_key), '[]'::json) from (
     select l.id, l.kind, l.price, l.created_at, l.ends_at, l.top_bid, l.bid_count,
            coalesce(l.top_bid + public._step(l.top_bid), l.price) as next_min,
-           v.card_id, v.name, v.set_name, v.number, v.image, v.grade,
+           v.card_id, v.name, v.set_name, v.number, v.image, v.grade, v.scan_verified,
            p.nickname as seller_name, public._seller_stats(l.seller) as seller,
            (l.seller = auth.uid()) as mine, (l.top_bidder = auth.uid()) as my_top,
            (select o.amount from public.offers o where o.listing_id = l.id and o.buyer = auth.uid() and o.status = 'active') as my_offer,
@@ -440,6 +446,7 @@ begin
   if p_market is not null and p_market > public.cfg_max_price() then
     raise exception '시세 ₩% 이상 카드는 PSA 등 그레이딩 기관을 이용해 주세요', to_char(public.cfg_max_price(), 'FM999,999,999'); end if;
   if coalesce(trim(p_card_id), '') = '' or coalesce(trim(p_name), '') = '' then raise exception '카드 정보가 비었어요'; end if;
+  if p_finger is not null and length(p_finger::text) > 4000 then raise exception '스캔 정보가 너무 커요'; end if;
   insert into public.batch_items(batch_id, seq, owner, card_id, name, set_name, number, image, market_krw, user_grade, user_finger)
   values (p_batch, n + 1, u, p_card_id, p_name, p_set, p_number, p_image, p_market, p_grade, p_finger) returning * into it;
   return row_to_json(it);
@@ -482,7 +489,9 @@ begin
 end $$;
 
 -- p_result: matched(일치) · downgraded(등급 하향, p_grade 필수) · mismatch(다른 카드/바꿔치기 의심) · missing(누락)
-create or replace function public.admin_check_item(p_item uuid, p_result text, p_grade text default null, p_note text default null) returns json
+drop function if exists public.admin_check_item(uuid, text, text, text);
+create or replace function public.admin_check_item(p_item uuid, p_result text, p_grade text default null, p_note text default null,
+                                                   p_finger jsonb default null, p_match jsonb default null) returns json
 language plpgsql security definer set search_path = public as $$
 declare it public.batch_items; b public.batches; g text; v public.vault_items; left_n int;
 begin
@@ -496,10 +505,14 @@ begin
   g := case when p_result = 'matched' then coalesce(p_grade, it.user_grade) when p_result = 'downgraded' then p_grade end;
   -- 등급 순서 S > A > B > C (문자열 비교 금지: 'A' < 'S'라서 틀림)
   if p_result = 'downgraded' and (p_grade is null or position(p_grade in 'SABC') <= position(it.user_grade in 'SABC')) then raise exception '하향 등급은 신청 등급보다 낮아야 해요'; end if;
-  update public.batch_items set status = p_result, intake_grade = g, note = p_note, checked_at = now() where id = p_item;
+  if p_finger is not null and length(p_finger::text) > 4000 then raise exception '스캔 정보가 너무 커요'; end if;
+  update public.batch_items set status = p_result, intake_grade = g, note = p_note, checked_at = now(),
+    intake_finger = p_finger, match = p_match where id = p_item;
   if p_result in ('matched', 'downgraded') then
-    insert into public.vault_items(owner, card_id, name, set_name, number, image, grade, batch_item_id)
-    values (it.owner, it.card_id, it.name, it.set_name, it.number, it.image, g, it.id) returning * into v;
+    -- 유저가 스캔해서 신청했고, 입고 스캔과 대조해 '일치'면 스캔 인증 배지
+    insert into public.vault_items(owner, card_id, name, set_name, number, image, grade, batch_item_id, scan_verified)
+    values (it.owner, it.card_id, it.name, it.set_name, it.number, it.image, g, it.id,
+            it.user_finger is not null and p_finger is not null and coalesce(p_match->>'verdict', '') = 'match') returning * into v;
   elsif p_result = 'mismatch' then
     update public.profiles set trust = trust - 10 where id = it.owner;
   end if;
@@ -778,6 +791,6 @@ grant execute on function
   public.make_offer(uuid, int), public.cancel_offer(uuid), public.respond_offer(uuid, boolean), public.my_activity(),
   public.add_wish(text), public.remove_wish(uuid), public.my_wishes(), public.my_notifications(int), public.read_notifications(),
   public.set_spend_limit(int),
-  public.admin_queue(), public.admin_check_item(uuid, text, text, text), public.admin_find_user(text), public.admin_topup(uuid, bigint, text),
+  public.admin_queue(), public.admin_check_item(uuid, text, text, text, jsonb, jsonb), public.admin_find_user(text), public.admin_topup(uuid, bigint, text),
   public.admin_withdrawals(), public.admin_ship_withdrawal(uuid)
 to authenticated;

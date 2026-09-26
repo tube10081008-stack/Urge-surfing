@@ -77,6 +77,10 @@ table { border-collapse: collapse; width: 100%; font-size: .88rem; } td, th { pa
 .list-sm { font-size: .85rem; } .list-sm div { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
 .notif { padding: 10px 0; border-bottom: 1px solid var(--line); } .notif.new { background: linear-gradient(90deg, rgba(47,111,208,.10), transparent); }
 .notif .t { font-weight: 700; font-size: .92rem; } .notif .b { font-size: .84rem; color: var(--muted); }
+.vf { position: absolute; bottom: 64px; right: 12px; background: #0b7a55; color: #fff; font-size: .7rem; font-weight: 800; padding: 1px 7px; border-radius: 99px; }
+.gbtn.auto { outline: 3px solid var(--good); }
+.verdict { border-radius: 12px; padding: 10px 12px; margin: 10px 0; font-weight: 700; }
+.verdict.match { background: #d6f5e3; color: #11643c; } .verdict.check { background: #fff1c7; color: #6b4a00; } .verdict.mismatch { background: #ffd9d9; color: #8a1111; }
 </style>
 </head>
 <body>
@@ -95,6 +99,7 @@ table { border-collapse: collapse; width: 100%; font-size: .88rem; } td, th { pa
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js"></script>
+<script src="scanner.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script>
 // ================= 기본 =================
@@ -112,7 +117,7 @@ const BATCH_KO = { draft: '작성 중', shipped: '발송됨 · 도착 대기', r
 const VAULT_KO = { held: '보관 중', listed: '판매 중', withdraw_requested: '출고 준비', shipped_out: '출고됨' };
 function toast(msg, err = false) { const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(toast.h); toast.h = setTimeout(() => t.className = 'toast', 3200); }
 function modal(html) { const m = $('modal'); m.innerHTML = `<div class="card">${html}</div>`; m.classList.remove('hidden'); m.onclick = e => { if (e.target === m) closeModal(); }; return m; }
-const closeModal = () => $('modal').classList.add('hidden');
+const closeModal = () => { window.Scan?.stop(); $('modal').classList.add('hidden'); };
 const KIND_TXT = { fixed: '즉시 구매', auction: '경매' };
 // 남은 시간 표시 ("3시간 12분", "4분 10초")
 function left(ends) {
@@ -122,7 +127,7 @@ function left(ends) {
   return d ? `${d}일 ${h}시간` : h ? `${h}시간 ${m}분` : `${m}분 ${s % 60}초`;
 }
 setInterval(() => document.querySelectorAll('[data-ends]').forEach(e => { e.textContent = left(e.dataset.ends); e.classList.toggle('tag', true); e.classList.toggle('warn', new Date(e.dataset.ends) - Date.now() < 600000); }), 1000);
-const sellerLine = s => s ? `거래 <b>${s.sales}</b>건 · 검수 일치 <b>${s.checked ? Math.round(s.matched / s.checked * 100) + '%' : '—'}</b>${s.checked ? ` (${s.matched}/${s.checked})` : ''} · 신뢰 <b>${s.trust}</b>` : '';
+const sellerLine = s => s ? `${s.scanned ? `🔬 스캔 인증 <b>${s.scanned}</b>장 · ` : ''}거래 <b>${s.sales}</b>건 · 검수 일치 <b>${s.checked ? Math.round(s.matched / s.checked * 100) + '%' : '—'}</b>${s.checked ? ` (${s.matched}/${s.checked})` : ''} · 신뢰 <b>${s.trust}</b>` : '';
 const fmtDate = d => new Date(d).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 // 결제 전 확인 패널 (오구매·오입찰 방지): 무엇을, 얼마에, 무엇이 묶이는지, 이번 달 지출이 어떻게 되는지 보여준다
 function confirmPanel(box, { title, lines, amount, okLabel, onOk }) {
@@ -241,7 +246,7 @@ async function renderMarket(q = '') {
   view.querySelector('.seg').onclick = e => { const b = e.target.closest('[data-k]'); if (b) { mkind = b.dataset.k || null; renderMarket($('mq').value.trim()); } };
   $('wish')?.addEventListener('click', e => act(e.target, () => rpc('add_wish', { p_query: q }), `'${q}' 찜했어요. 새로 올라오면 알려드려요`).catch(() => {}));
   const list = await rpc('market', { p_q: q || null, p_kind: mkind });
-  $('mlist').innerHTML = list.length ? `<div class="grid">${list.map(l => `<button class="tile" data-l="${l.id}">${img(l.image, l.name)}<span class="gr g-${l.grade}">${l.grade}</span>${l.mine ? '<span class="st">내 판매</span>' : l.my_top ? '<span class="st">🔥 최고 입찰</span>' : l.my_offer ? '<span class="st">제안 중</span>' : ''}
+  $('mlist').innerHTML = list.length ? `<div class="grid">${list.map(l => `<button class="tile" data-l="${l.id}">${img(l.image, l.name)}<span class="gr g-${l.grade}">${l.grade}</span>${l.scan_verified ? '<span class="vf">🔬 스캔 인증</span>' : ''}${l.mine ? '<span class="st">내 판매</span>' : l.my_top ? '<span class="st">🔥 최고 입찰</span>' : l.my_offer ? '<span class="st">제안 중</span>' : ''}
       <div class="nm">${esc(l.name)}</div><div class="sub">${esc(l.set_name || '')} #${esc(l.number || '')} · ${esc(l.seller_name)}</div>
       ${l.kind === 'auction' ? `<div class="pr">${won(l.top_bid ?? l.price)} <span class="tag auc">경매</span></div><div class="meta">⏱ <span data-ends="${l.ends_at}">${left(l.ends_at)}</span> · 입찰 ${l.bid_count}</div>`
         : `<div class="pr">${won(l.price)}</div>`}
@@ -258,6 +263,7 @@ async function openListing(l) {
       ${auc ? `<div class="muted">${l.top_bid ? '현재 최고가' : '시작가'} · ⏱ <span data-ends="${l.ends_at}">${left(l.ends_at)}</span> 남음</div>` : ''}</div></div>
     <div class="stats">판매자 <b>${esc(l.seller_name)}</b> · ${sellerLine(l.seller)}</div>
     <p class="muted" style="margin:4px 0">등급은 보관소가 입고 검수에서 직접 확인한 컨디션이에요 (S 최상 · A 양호 · B 보통 · C 하자).</p>
+    ${l.scan_verified ? '<p class="tag hot" style="margin:4px 0">🔬 스캔 인증 — 판매자가 보낸 스캔과 보관소 입고 스캔의 그림·센터링 지문이 일치한 실물이에요</p>' : ''}
     <div id="ldet" class="list-sm muted">불러오는 중…</div>
     <div id="lact" style="margin-top:12px"></div><div id="lconf"></div>
     <div class="row" style="margin-top:10px"><button class="ghost grow" id="mc">닫기</button></div>`);
@@ -378,21 +384,69 @@ async function renderIntake() {
   const past = batches.filter(b => b.status !== 'draft');
   const n = draft?.items.length || 0, max = me?.batch_size || 10;
   view.innerHTML = `<div class="card"><h2>📮 카드 맡기기</h2>
-      <p class="muted" style="margin-top:0">최대 ${max}장을 한 번에 보내요. 담은 순서대로 <b>슬리브에 1번부터</b> 넣고, 배치 코드를 쪽지에 적어 함께 보내주세요.
+      <p class="muted" style="margin-top:0"><b>📷 스캔으로 추가</b>하면 카드를 자동으로 알아보고 등급을 재요. 스캔 지문은 입고 때 보관소 스캔과 대조돼서, 일치하면 마켓에 <b>🔬 스캔 인증</b>이 붙어요. 최대 ${max}장을 한 번에 보내요. 담은 순서대로 <b>슬리브에 1번부터</b> 넣고, 배치 코드를 쪽지에 적어 함께 보내주세요.
       시세 ${won(me?.max_price)} 이상 카드는 PSA 등 그레이딩 기관을 추천해요.</p>
       ${draft ? `<div class="row"><span class="pill">배치 ${esc(draft.code)}</span><span class="muted">${n} / ${max}장</span></div>
         <div id="ditems">${draft.items.map(i => `<div class="item-row">${img(i.image, i.name)}<div class="row"><div class="grow"><span class="seq">${i.seq}</span><b>${esc(i.name)}</b>
-          <div class="muted">${esc(i.set_name || '')} #${esc(i.number || '')} · 내 등급 <b>${i.user_grade}</b>${i.market_krw ? ` · 시세 ${won(i.market_krw)}` : ''}</div></div>
+          <div class="muted">${esc(i.set_name || '')} #${esc(i.number || '')} · 내 등급 <b>${i.user_grade}</b>${i.market_krw ? ` · 시세 ${won(i.market_krw)}` : ''}${i.user_finger ? ' · <span class="tag hot">📷 스캔</span>' : ''}</div></div>
           <button class="ghost sm" data-rm="${i.id}">빼기</button></div></div>`).join('')}</div>
-        <div class="row" style="margin-top:10px"><button class="ghost grow" id="addc" ${n >= max ? 'disabled' : ''}>＋ 카드 추가</button><button class="grow" id="ship" ${n ? '' : 'disabled'}>📦 발송하기</button></div>`
+        <div class="row" style="margin-top:10px"><button class="grow" id="scanc" ${n >= max ? 'disabled' : ''}>📷 스캔으로 추가</button><button class="ghost" id="addc" ${n >= max ? 'disabled' : ''}>🔎 검색</button><button class="grow" id="ship" ${n ? '' : 'disabled'}>📦 발송하기</button></div>`
       : `<button id="newb" style="width:100%">＋ 새 입고 신청 시작</button>`}</div>
     ${past.length ? `<div class="card"><h2>지난 입고</h2>${past.map(b => `<details style="margin-bottom:8px"><summary><b>${esc(b.code)}</b> · ${BATCH_KO[b.status]} · ${b.items.length}장</summary>
       ${b.items.map(i => `<div class="item-row">${img(i.image, i.name)}<div><span class="seq">${i.seq}</span><b>${esc(i.name)}</b> <span class="muted">신청 ${i.user_grade}${i.intake_grade ? ` → 검수 ${i.intake_grade}` : ''}</span>
-        <div class="res-${i.status}" style="font-size:.85rem">${RESULT_KO[i.status]}${i.note ? ` · ${esc(i.note)}` : ''}</div></div></div>`).join('')}</details>`).join('')}</div>` : ''}`;
+        <div class="res-${i.status}" style="font-size:.85rem">${RESULT_KO[i.status]}${i.note ? ` · ${esc(i.note)}` : ''}</div>${i.match?.msg ? `<div class="muted" style="font-size:.8rem">🔬 ${esc(i.match.msg)}</div>` : ''}</div></div>`).join('')}</details>`).join('')}</div>` : ''}`;
   $('newb')?.addEventListener('click', async e => { await act(e.target, () => rpc('open_batch')); renderIntake(); });
   $('addc')?.addEventListener('click', () => addCardFlow(draft));
+  $('scanc')?.addEventListener('click', () => scanAddFlow(draft));
   $('ship')?.addEventListener('click', () => shipFlow(draft));
   $('ditems')?.addEventListener('click', async e => { const b = e.target.closest('[data-rm]'); if (!b) return; await act(b, () => rpc('remove_batch_item', { p_item: b.dataset.rm })); renderIntake(); });
+}
+// ---------- 스캔으로 추가: 앞면 스캔 → 자동 판독(후보 선택) → (선택) 뒷면 스캔 → 측정 등급 → 담기 ----------
+function scanAddFlow(draft) {
+  modal(`<div class="row"><h2 class="grow" style="margin:0">📷 앞면 스캔 · ${draft.items.length + 1}번 슬리브</h2><button class="ghost sm" id="x">닫기</button></div><div id="scw" style="margin-top:10px"></div><div id="scr"></div>`);
+  $('x').onclick = closeModal;
+  Scan.open($('scw'), { hint: '카드 <b>앞면</b>을 어두운 바닥에 놓고 틀에 맞춰주세요. 슬리브는 빼면 더 잘 읽혀요.', onShot: async (front, ui) => {
+    ui.busy('카드 판독 중…');
+    const r = await Scan.identify(front);
+    ui.idle(r.sure ? '찾았어요!' : r.list.length ? '어떤 카드인지 골라주세요' : '카드를 알아보지 못했어요');
+    const pick = async id => { $('scr').innerHTML = '<div class="status">카드 정보 불러오는 중…</div>'; const c = await Scan.detail(id).catch(() => null); if (!c) return toast('카드 정보를 불러오지 못했어요', true); scanBackStep(draft, c, front); };
+    if (r.sure) return pick(r.list[0].id);
+    const info = r.info;
+    $('scr').innerHTML = `<p class="muted">읽은 정보: ${info.sp ? esc(info.sp) : '이름 ?'} · ${info.no ? esc(info.no.num + '/' + info.no.total) : '번호 ?'}</p>
+      ${r.list.length ? `<h3>위 사진과 같은 카드를 눌러주세요</h3><div class="grid" id="cands">${r.list.slice(0, 24).map(c => `<button type="button" class="tile" data-c="${esc(c.id)}">${img(Scan.imgOf(c), c.name)}<div class="nm">${esc(c.name)}</div><div class="sub">${esc(c.set?.name || c.id)}</div></button>`).join('')}</div>` : '<p>카드 아래 번호(예: 39/132)와 위쪽 이름이 반사 없이 보이게 다시 찍거나, 이름으로 검색해 주세요.</p>'}
+      <div class="row" style="margin-top:10px"><button class="ghost" id="again">↻ 다시 찍기</button><button class="ghost" id="bysearch">🔎 이름으로 검색</button></div>`;
+    $('cands')?.addEventListener('click', e => { const t = e.target.closest('[data-c]'); if (t) pick(t.dataset.c); });
+    $('again').onclick = () => scanAddFlow(draft);
+    $('bysearch').onclick = () => addCardFlow(draft);
+  } });
+}
+function scanBackStep(draft, c, front) {
+  const krw = Scan.krwOf(c);
+  const over = krw != null && krw > (me?.max_price || 1e9);
+  $('scw').innerHTML = `<div class="item-row">${img(Scan.imgOf(c), c.name)}<div><b>${esc(c.name)}</b><div class="muted">${esc(c.set?.name || '')} #${esc(c.localId)} · 시세 ${won(krw)}</div></div></div>`;
+  if (over) { $('scr').innerHTML = `<p class="res-mismatch">💎 시세 ${won(krw)}의 고가 카드예요. 보관소는 ${won(me.max_price)} 이하 카드만 받아요 — PSA·BGS 같은 그레이딩 기관을 추천해요.</p><button class="ghost" id="again">다른 카드 스캔</button>`; $('again').onclick = () => scanAddFlow(draft); return; }
+  $('scr').innerHTML = `<h3>뒷면도 찍을까요?</h3><p class="muted" style="margin-top:0">뒷면을 찍으면 <b>모서리·테두리 까짐</b>까지 재서 등급이 정확해져요. 안 찍으면 앞면 센터링으로만 재요.</p>
+    <div class="row"><button class="grow" id="back">📷 뒷면 찍기</button><button class="ghost" id="skip">건너뛰기</button></div>`;
+  $('skip').onclick = () => scanGradeStep(draft, c, krw, front, null);
+  $('back').onclick = () => {
+    $('scr').innerHTML = '';
+    Scan.open($('scw'), { hint: '이제 카드를 뒤집어 <b>뒷면</b>을 틀에 맞춰주세요.', onShot: back => scanGradeStep(draft, c, krw, front, back) });
+  };
+}
+function scanGradeStep(draft, c, krw, front, back) {
+  const g = Scan.grade(front, back), fp = Scan.finger(front, g);
+  $('scw').innerHTML = `<div class="item-row">${img(Scan.imgOf(c), c.name)}<div><b>${esc(c.name)}</b><div class="muted">${esc(c.set?.name || '')} #${esc(c.localId)} · 시세 ${won(krw)}</div></div></div>`;
+  $('scr').innerHTML = `<h3>측정 등급: <span class="gr g-${g.grade}" style="position:static">${g.grade}</span> ${GRADE_KO[g.grade]}</h3>
+    <p class="muted" style="margin-top:0">${esc(g.text)}</p>
+    <h3>신청 등급</h3><div class="row">${['S', 'A', 'B', 'C'].map(x => `<button type="button" class="ghost grow gbtn ${x === g.grade ? 'auto' : ''}" data-g="${x}"><span class="gr g-${x}" style="position:static">${x}</span> ${GRADE_KO[x]}</button>`).join('')}</div>
+    <p class="muted" id="gwarn">초록 테두리가 측정 결과예요. 표면 긁힘·찍힘은 사진으로 잘 안 보이니 있으면 낮춰 주세요.</p>`;
+  $('scr').onclick = async e => {
+    const b = e.target.closest('[data-g]'); if (!b) return;
+    const pick = b.dataset.g;
+    if ('SABC'.indexOf(pick) < 'SABC'.indexOf(g.grade) && !b.dataset.sure) { b.dataset.sure = 1; $('gwarn').innerHTML = `<b class="res-downgraded">측정(${g.grade})보다 높게 신청하면 입고 검수에서 하향될 수 있어요.</b> 그래도 ${pick}로 신청하려면 한 번 더 눌러주세요.`; return; }
+    try { await act(b, () => rpc('add_batch_item', { p_batch: draft.id, p_card_id: c.id, p_name: c.name, p_set: c.set?.name || null, p_number: c.localId, p_image: Scan.imgOf(c) || null, p_market: krw, p_grade: pick, p_finger: fp }), '담았어요 (스캔 지문 포함)'); } catch { return; }
+    closeModal(); renderIntake();
+  };
 }
 // 카드 검색(TCGdex) → 고르기 → 내 등급 → 담기
 function addCardFlow(draft) {
@@ -486,18 +540,24 @@ async function renderAdmin() {
       <p class="muted" style="margin-top:0">도착한 배치를 열어 슬리브 순서대로 확인하세요. <b>일치</b>면 신청 등급으로, <b>하향</b>이면 낮춘 등급으로 보관함에 등록돼요. 불일치(바꿔치기 의심)는 신뢰 점수 −10.</p>
       ${queue.length ? queue.map(b => `<details open style="margin-bottom:10px"><summary><b>${esc(b.code)}</b> · ${esc(b.owner_name)} (신뢰 ${b.trust}) · ${esc(b.tracking || '송장 없음')}</summary>
         ${b.items.map(i => `<div class="item-row">${img(i.image, i.name)}<div><span class="seq">${i.seq}</span><b>${esc(i.name)}</b> <span class="muted">${esc(i.set_name || '')} #${esc(i.number || '')} · 신청 ${i.user_grade}</span>
+          ${i.user_finger ? '<span class="tag hot">📷 유저 스캔</span>' : '<span class="tag">스캔 없음</span>'}
           ${i.status === 'pending' ? `<div class="row" style="margin-top:6px" data-i="${i.id}" data-ug="${i.user_grade}">
+            <button class="sm" data-scan="${i.id}">🔬 스캔 대조</button>
             <button class="good sm" data-r="matched">일치</button>
             <select class="sm" style="width:auto" aria-label="하향 등급">${['A', 'B', 'C'].filter(g => 'SABC'.indexOf(g) > 'SABC'.indexOf(i.user_grade)).map(g => `<option>${g}</option>`).join('')}</select><button class="warn sm" data-r="downgraded" ${i.user_grade === 'C' ? 'disabled' : ''}>하향</button>
             <button class="bad sm" data-r="mismatch">불일치</button><button class="ghost sm" data-r="missing">누락</button></div>`
-          : `<div class="res-${i.status}" style="font-size:.85rem">${RESULT_KO[i.status]}${i.intake_grade ? ` (${i.intake_grade})` : ''}</div>`}</div></div>`).join('')}</details>`).join('') : '<div class="status">도착 대기 중인 배치가 없어요.</div>'}</div>
+          : `<div class="res-${i.status}" style="font-size:.85rem">${RESULT_KO[i.status]}${i.intake_grade ? ` (${i.intake_grade})` : ''}${i.match?.msg ? ` · 🔬 ${esc(i.match.msg)}` : ''}</div>`}</div></div>`).join('')}
+        ${b.items.some(i => i.status === 'pending') ? `<button style="width:100%;margin-top:8px" data-chain="${b.id}">▶ 슬리브 ${b.items.find(i => i.status === 'pending').seq}번부터 연속 스캔 대조</button>` : ''}</details>`).join('') : '<div class="status">도착 대기 중인 배치가 없어요.</div>'}</div>
     <div class="card"><h2>💰 포인트 충전</h2><p class="muted" style="margin-top:0">입금을 확인한 뒤 충전하세요. 음수면 출금(현금 환급) 처리돼요.</p>
       <div class="row"><input id="tuEmail" class="grow" type="email" placeholder="회원 이메일"><button class="ghost" id="tuFind">찾기</button></div><p id="tuUser" class="muted"></p>
       <div class="row"><input id="tuAmt" class="grow" type="number" step="1000" placeholder="금액 (원)"><input id="tuMemo" class="grow" placeholder="메모 (예: 9/26 입금)"><button id="tuGo" disabled>충전</button></div></div>
     <div class="card"><h2>📤 출고 요청 <span class="muted">${wds.length}건</span></h2>${wds.length ? wds.map(w => `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(w.owner_name)}</b> · ${w.cards.length}장 · <span class="${Date.now() - new Date(w.created_at) > 172800000 ? 'res-mismatch' : 'muted'}">요청 ${Math.floor((Date.now() - new Date(w.created_at)) / 3600000)}시간 전</span>
         <div class="muted" style="white-space:pre-wrap">${esc(w.address)}</div><div class="muted">${w.cards.map(c => `${esc(c.name)} (${esc(c.set_name || '')} #${esc(c.number || '')}, ${c.grade})`).join(' · ')}</div>
         <button class="sm" data-ship="${w.id}" style="margin-top:6px">발송 완료</button></div>`).join('') : '<div class="status">출고 요청이 없어요.</div>'}</div>`;
+  const allItems = queue.flatMap(b => b.items.map(i => ({ ...i, batch: b })));
   view.onclick = async e => {
+    const sc = e.target.closest('[data-scan]'); if (sc) return scanCheck(allItems.find(i => i.id === sc.dataset.scan), false);
+    const ch = e.target.closest('[data-chain]'); if (ch) return scanCheck(allItems.find(i => i.batch_id === ch.dataset.chain && i.status === 'pending'), true);
     const r = e.target.closest('[data-r]');
     if (r) {
       const box = r.closest('[data-i]'), res = r.dataset.r;
@@ -522,6 +582,43 @@ async function renderAdmin() {
     $('tuUser').textContent = `${target.nickname} · 잔액 ${won(r.balance)}`;
     if (target.id === me.id) refreshMe();
   };
+}
+
+// 입고 스캔 대조: 운영자가 실물을 찍으면 유저 스캔 지문(없으면 공식 이미지)과 비교해 판정을 제안한다
+function scanCheck(it, chain) {
+  if (!it) return;
+  const left = it.batch.items.filter(i => i.status === 'pending').length;
+  modal(`<div class="row"><h2 class="grow" style="margin:0">🔬 ${esc(it.batch.code)} · ${it.seq}번 슬리브${chain ? ` <span class="muted">(남은 ${left}장)</span>` : ''}</h2><button class="ghost sm" id="x">닫기</button></div>
+    <div class="item-row">${img(it.image, it.name)}<div><b>${esc(it.name)}</b><div class="muted">${esc(it.set_name || '')} #${esc(it.number || '')} · 신청 ${it.user_grade}${it.user_finger?.auto ? ` (유저 측정 ${it.user_finger.auto})` : ''} · ${it.user_finger ? '유저 스캔 있음' : '유저 스캔 없음 → 공식 이미지와 비교'}</div></div></div>
+    <div id="scw"></div><div id="scr"></div>`);
+  $('x').onclick = () => { closeModal(); renderAdmin(); };
+  Scan.open($('scw'), { hint: `${it.seq}번 슬리브 카드의 <b>앞면</b>을 찍어주세요.`, onShot: async (front, ui) => {
+    ui.busy('지문 대조 중…');
+    const g = Scan.grade(front, null), fp = Scan.finger(front, g);
+    const m = it.user_finger ? Scan.compare(it.user_finger, fp) : await Scan.compareWithImage(fp, it.image);
+    ui.idle(m ? (m.verdict === 'match' ? '일치' : m.verdict === 'check' ? '확인 필요' : '불일치') : '비교 불가');
+    const lower = 'SABC'.indexOf(g.grade) > 'SABC'.indexOf(it.user_grade);
+    const sug = !m ? null : m.verdict === 'mismatch' ? 'mismatch' : lower ? 'downgraded' : 'matched';
+    $('scr').innerHTML = `${m ? `<div class="verdict ${m.verdict}">${esc(m.msg)}</div><p class="muted" style="margin-top:0">그림 거리 ${m.art} (0.75 미만이면 같은 그림)${m.cen != null ? ` · 센터링 차이 ${m.cen}%p` : ''}</p>` : '<div class="verdict check">비교할 이미지가 없어요 — 눈으로 확인해 주세요</div>'}
+      <p>입고 측정 등급 <span class="gr g-${g.grade}" style="position:static">${g.grade}</span> · 신청 ${it.user_grade} <span class="muted">(${esc(g.text)})</span></p>
+      <div class="row" id="acts">
+        <button class="${sug === 'matched' || !sug ? 'good' : 'ghost'} grow" data-a="matched">✅ 일치 (${it.user_grade})</button>
+        ${it.user_grade !== 'C' ? `<select id="dg" style="width:auto" aria-label="하향 등급">${['A', 'B', 'C'].filter(x => 'SABC'.indexOf(x) > 'SABC'.indexOf(it.user_grade)).map(x => `<option ${x === g.grade ? 'selected' : ''}>${x}</option>`).join('')}</select><button class="${sug === 'downgraded' ? 'warn' : 'ghost'}" data-a="downgraded">하향</button>` : ''}
+        <button class="${sug === 'mismatch' ? 'bad' : 'ghost'}" data-a="mismatch">❌ 불일치</button><button class="ghost" data-a="missing">누락</button></div>
+      ${sug ? `<p class="muted">제안: <b>${{ matched: '일치', downgraded: '하향', mismatch: '불일치' }[sug]}</b> — 최종 판단은 운영자가 해요.</p>` : ''}
+      <button class="ghost" id="rescan" style="margin-top:6px">↻ 다시 찍기</button>`;
+    $('rescan').onclick = () => scanCheck(it, chain);
+    $('acts').onclick = async e => {
+      const b = e.target.closest('[data-a]'); if (!b) return;
+      const res = b.dataset.a;
+      const note = res === 'matched' ? null : res === 'downgraded' ? `입고 측정 ${g.grade}` : res === 'mismatch' ? (m?.msg || '신청과 다른 카드') : '슬리브에 카드 없음';
+      try { await act(b, () => rpc('admin_check_item', { p_item: it.id, p_result: res, p_grade: res === 'downgraded' ? $('dg').value : null, p_note: note, p_finger: res === 'missing' ? null : fp, p_match: m }), '처리했어요'); } catch { return; }
+      const src = it.batch.items.find(i => i.id === it.id); if (src) src.status = res;
+      const nx = chain && it.batch.items.find(i => i.status === 'pending' && i.seq > it.seq);
+      if (nx) return scanCheck({ ...nx, batch: it.batch }, true);
+      closeModal(); renderAdmin();
+    };
+  } });
 }
 
 // ================= 시작 =================
