@@ -1209,10 +1209,10 @@ async function renderScan() {
   document.getElementById('upFile').onchange = e => { const f = e.target.files[0]; if (f) fromFile(f); };
   document.getElementById('sndBtn').onclick = e => { store.sound = !store.sound; save(); e.target.textContent = store.sound ? '🔊' : '🔇'; };
   const vid = document.getElementById('vid'), msg = document.getElementById('smsg');
-  document.getElementById('shutBtn').onclick = () => { if (cam) capture(null); else document.getElementById('upFile').click(); };
+  document.getElementById('shutBtn').onclick = () => { if (cam) capture(0); else document.getElementById('upFile').click(); };
   loadOcr().catch(() => {});                       // 미리 불러두기
   try {
-    cam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false });
+    cam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 2560 }, height: { ideal: 1920 } }, audio: false });
   } catch (e) {
     msg.textContent = '카메라를 쓸 수 없어요 · 🖼️ 사진에서 불러오기를 써주세요';
     return;
@@ -1232,90 +1232,144 @@ function guideInVideo(vid) {
   return { x: (g.left - box.left - ox) / s, y: (g.top - box.top - oy) / s, w: g.width / s, h: g.height / s };
 }
 
-// 가이드 주변 띠에서 카드 테두리(가장 강한 직선 경계)를 찾는다
-function toGray(ctx, w, h) {
-  const d = ctx.getImageData(0, 0, w, h).data, g = new Float32Array(w * h);
-  for (let i = 0; i < w * h; i++) g[i] = d[i * 4] * .299 + d[i * 4 + 1] * .587 + d[i * 4 + 2] * .114;
-  return g;
-}
-function findEdges(g, w, h, gd, bandFrac) {
-  const at = (x, y) => g[y * w + x];
-  const bh = Math.max(2, Math.round(gd.h * bandFrac)), bw = Math.max(2, Math.round(gd.w * bandFrac));
-  const clampY = y => Math.min(h - 2, Math.max(1, y)), clampX = x => Math.min(w - 2, Math.max(1, x));
-  const rowScore = y => { let s = 0, n = 0; for (let x = clampX(gd.x + gd.w * .15 | 0); x < clampX(gd.x + gd.w * .85 | 0); x++, n++) s += Math.abs(at(x, y + 1) - at(x, y - 1)); return n ? s / n : 0; };
-  const colScore = x => { let s = 0, n = 0; for (let y = clampY(gd.y + gd.h * .15 | 0); y < clampY(gd.y + gd.h * .85 | 0); y++, n++) s += Math.abs(at(x + 1, y) - at(x - 1, y)); return n ? s / n : 0; };
-  const best = (from, to, fn, clamp) => { let b = { pos: from, score: 0 }; for (let v = clamp(from); v <= clamp(to); v++) { const sc = fn(v); if (sc > b.score) b = { pos: v, score: sc }; } return b; };
-  return {
-    top: best(Math.round(gd.y - bh), Math.round(gd.y + bh), rowScore, clampY),
-    bottom: best(Math.round(gd.y + gd.h - bh), Math.round(gd.y + gd.h + bh), rowScore, clampY),
-    left: best(Math.round(gd.x - bw), Math.round(gd.x + bw), colScore, clampX),
-    right: best(Math.round(gd.x + gd.w - bw), Math.round(gd.x + gd.w + bw), colScore, clampX)
+// ---------- 카드 찾기 ----------
+// 밝기가 아니라 색 차이로 경계를 본다(흰 책상 위 노란 테두리도 잡힘). 바깥에서 안쪽으로 훑어
+// 충분히 강한 첫 경계 = 카드 바깥선. 여러 각도로 돌려 보며 가장 또렷한 각도를 골라 기울기도 보정한다.
+const EDGE_TH = 20;
+function findEdges(d, w, h, gd) {
+  const cg = (a, b) => (Math.abs(d[a] - d[b]) + Math.abs(d[a + 1] - d[b + 1]) + Math.abs(d[a + 2] - d[b + 2])) / 3;
+  const P = (x, y) => (y * w + x) * 4;
+  const cy = y => Math.min(h - 2, Math.max(1, y)), cx = x => Math.min(w - 2, Math.max(1, x));
+  const rowScore = y => { let s = 0, n = 0; for (let x = cx(gd.x + gd.w * .2 | 0); x < cx(gd.x + gd.w * .8 | 0); x++, n++) s += cg(P(x, y - 1), P(x, y + 1)); return n ? s / n : 0; };
+  const colScore = x => { let s = 0, n = 0; for (let y = cy(gd.y + gd.h * .2 | 0); y < cy(gd.y + gd.h * .8 | 0); y++, n++) s += cg(P(x - 1, y), P(x + 1, y)); return n ? s / n : 0; };
+  const scan = (from, to, fn, clamp) => {
+    const st = from < to ? 1 : -1, vals = [];
+    for (let v = from; v !== to; v += st) { const c = clamp(v); vals.push([c, fn(c)]); }
+    const max = Math.max(...vals.map(v => v[1]));
+    const pick = vals.find(([, sc]) => sc >= Math.max(EDGE_TH, max * .6)) || vals.reduce((a, b) => b[1] > a[1] ? b : a);
+    return { pos: pick[0], score: pick[1] };
   };
+  const oy = Math.round(gd.h * .14), iy = Math.round(gd.h * .2), ox = Math.round(gd.w * .14), ix = Math.round(gd.w * .2);
+  const T = Math.round(gd.y), B = Math.round(gd.y + gd.h), L = Math.round(gd.x), R = Math.round(gd.x + gd.w);
+  return { top: scan(T - oy, T + iy, rowScore, cy), bottom: scan(B + oy, B - iy, rowScore, cy), left: scan(L - ox, L + ix, colScore, cx), right: scan(R + ox, R - ix, colScore, cx) };
 }
-const EDGE_TH = 22;
+// src(비디오·이미지)의 reg 영역에서 가이드 gv 근처의 카드를 여러 각도로 찾는다 (좌표는 src 픽셀)
+// 탐색 영역은 원본 안으로 제한 (밖을 검은색으로 채우면 그 경계를 카드 테두리로 착각함)
+function clampReg(reg, src) {
+  const sw = src.videoWidth || src.width, sh = src.videoHeight || src.height;
+  const x = Math.max(0, reg.x), y = Math.max(0, reg.y);
+  return { x, y, w: Math.min(sw, reg.x + reg.w) - x, h: Math.min(sh, reg.y + reg.h) - y };
+}
+function findCard(src, reg, gv, angles, W = 180) {
+  reg = clampReg(reg, src);
+  const k = W / reg.w, H = Math.round(reg.h * k), c = { x: reg.x + reg.w / 2, y: reg.y + reg.h / 2 };
+  const cv = findCard.cv ??= document.createElement('canvas'); cv.width = W; cv.height = H;
+  const x = cv.getContext('2d', { willReadFrequently: true });
+  const gd = { x: (gv.x - reg.x) * k, y: (gv.y - reg.y) * k, w: gv.w * k, h: gv.h * k };
+  let best = null;
+  for (const a of angles) {
+    x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+    x.setTransform(k, 0, 0, k, 0, 0); x.translate(-reg.x, -reg.y); x.translate(c.x, c.y); x.rotate(-a * Math.PI / 180); x.translate(-c.x, -c.y);
+    x.drawImage(src, 0, 0);
+    const d = x.getImageData(0, 0, W, H).data, e = findEdges(d, W, H, gd);
+    const sides = [e.top, e.bottom, e.left, e.right], ok = sides.map(v => v.score > EDGE_TH);
+    const w = e.right.pos - e.left.pos, h = e.bottom.pos - e.top.pos, ar = h / w;
+    const shape = w > gd.w * .5 && ar > 1.22 && ar < 1.58;
+    const score = sides.reduce((t, v) => t + Math.min(v.score, 90), 0) * (shape ? 1 : .5);
+    if (!best || score > best.score) best = { a, e, ok, shape, score, d };
+  }
+  best.rect = { x: reg.x + best.e.left.pos / k, y: reg.y + best.e.top.pos / k, w: (best.e.right.pos - best.e.left.pos) / k, h: (best.e.bottom.pos - best.e.top.pos) / k };
+  best.c = c;
+  return best;
+}
+const refineAngles = a => [a - 2, a - 1, a, a + 1, a + 2];
+// 찾은 카드를 똑바로 펴서 W×H로 잘라낸다
+function warp(src, f, W, H) {
+  const o = document.createElement('canvas'); o.width = W; o.height = H;
+  const x = o.getContext('2d'); x.imageSmoothingQuality = 'high';
+  x.scale(W / f.rect.w, H / f.rect.h); x.translate(-f.rect.x, -f.rect.y);
+  x.translate(f.c.x, f.c.y); x.rotate(-f.a * Math.PI / 180); x.translate(-f.c.x, -f.c.y);
+  x.drawImage(src, 0, 0);
+  return o;
+}
+// 화면용(630×880) + 판독용 고해상도(원본 크기 유지, 최소 900px 폭) 두 장
+function cardShots(src, f) {
+  const card = warp(src, f, CARD_W, CARD_H);
+  const hw = Math.max(900, Math.round(f.rect.w));
+  card.hi = warp(src, f, hw, Math.round(hw * CARD_H / CARD_W));
+  return card;
+}
 
 function watch(vid) {
-  const W = 180, small = document.createElement('canvas'), sctx = small.getContext('2d', { willReadFrequently: true });
-  let prev = null, steady = 0, last = 0;
+  let prev = null, steady = 0, last = 0, lastA = 0;
   const guide = document.getElementById('guide'), bar = document.getElementById('holdBar'), msg = document.getElementById('smsg');
   const step = t => {
     scanLoop = requestAnimationFrame(step);
-    if (t - last < 110 || !vid.videoWidth) return; last = t;
-    const gv = guideInVideo(vid);
-    const m = .14, rx = gv.x - gv.w * m, ry = gv.y - gv.h * m, rw = gv.w * (1 + 2 * m), rh = gv.h * (1 + 2 * m);
-    const k = W / rw, H = Math.round(rh * k);
-    small.width = W; small.height = H;
-    sctx.drawImage(vid, rx, ry, rw, rh, 0, 0, W, H);
-    const g = toGray(sctx, W, H);
-    const gd = { x: gv.w * m * k, y: gv.h * m * k, w: gv.w * k, h: gv.h * k };
-    const e = findEdges(g, W, H, gd, .09);
-    const ok = { t: e.top.score > EDGE_TH, bm: e.bottom.score > EDGE_TH, l: e.left.score > EDGE_TH, r: e.right.score > EDGE_TH };
-    for (const c in ok) guide.classList.toggle(c, ok[c]);
-    let diff = 0;
-    if (prev) { for (let i = 0; i < g.length; i += 3) diff += Math.abs(g[i] - prev[i]); diff /= g.length / 3; }
-    prev = g;
-    const sides = Object.values(ok).filter(Boolean).length;
-    if (sides === 4 && diff < 7) steady++; else steady = Math.max(0, steady - 2);
-    bar.style.width = Math.min(100, steady / 7 * 100) + '%';
-    msg.textContent = sides < 4 ? (sides >= 2 ? '조금만 더 맞춰주세요' : '카드를 틀에 맞춰주세요') : diff >= 7 ? '흔들리지 않게 잡아주세요' : '좋아요, 그대로…';
-    if (steady >= 7) {
-      const rect = { x: rx + e.left.pos / k, y: ry + e.top.pos / k, w: (e.right.pos - e.left.pos) / k, h: (e.bottom.pos - e.top.pos) / k };
-      capture(rect);
-    }
+    if (t - last < 120 || !vid.videoWidth) return; last = t;
+    const gv = guideInVideo(vid), m = .22;
+    const reg = { x: gv.x - gv.w * m, y: gv.y - gv.h * m, w: gv.w * (1 + 2 * m), h: gv.h * (1 + 2 * m) };
+    const f = findCard(vid, reg, gv, [...new Set([-8, -4, 0, 4, 8, lastA])], 160);
+    lastA = f.a;
+    const [t0, b0, l0, r0] = f.ok;
+    for (const [cl, v] of [['t', t0], ['bm', b0], ['l', l0], ['r', r0]]) guide.classList.toggle(cl, v);
+    let diff = 99;
+    if (prev && prev.length === f.d.length) { diff = 0; for (let i = 0; i < f.d.length; i += 12) diff += Math.abs(f.d[i] - prev[i]); diff /= f.d.length / 12; }
+    prev = f.d;
+    const sides = f.ok.filter(Boolean).length, found = sides === 4 && f.shape;
+    if (found && diff < 8) steady++; else steady = Math.max(0, steady - 2);
+    bar.style.width = Math.min(100, steady / 6 * 100) + '%';
+    msg.textContent = !found ? (sides >= 2 ? '카드 네 변이 틀 안에 다 보이게 해주세요' : '카드를 틀에 맞춰주세요') : diff >= 8 ? '흔들리지 않게 잡아주세요' : '좋아요, 그대로…';
+    if (steady >= 6) capture(f.a);
   };
   scanLoop = requestAnimationFrame(step);
 }
 
-function capture(rect) {
+let capturing = false;
+async function capture(angle = 0) {
   const vid = document.getElementById('vid');
-  if (!vid || !vid.videoWidth) return;
+  if (!vid || !vid.videoWidth || capturing) return;
+  capturing = true;
   cancelAnimationFrame(scanLoop); scanLoop = 0;
-  if (!rect) rect = guideInVideo(vid);
-  const card = document.createElement('canvas'); card.width = CARD_W; card.height = CARD_H;
-  card.getContext('2d').drawImage(vid, rect.x, rect.y, rect.w, rect.h, 0, 0, CARD_W, CARD_H);
   document.getElementById('flash').classList.add('go');
   document.getElementById('guide').classList.add('lock');
   sfx.shutter(); buzz(40);
+  const gv = guideInVideo(vid), m = .22;
+  // 멈춘 순간의 비디오 프레임
+  const fr = document.createElement('canvas'); fr.width = vid.videoWidth; fr.height = vid.videoHeight; fr.getContext('2d').drawImage(vid, 0, 0);
+  let src = fr, g = gv;
+  // 가능하면 사진 모드로 원본 해상도 촬영 (비디오보다 훨씬 선명 → 번호 판독에 결정적)
+  try {
+    if (window.ImageCapture && cam) {
+      const photo = await createImageBitmap(await new ImageCapture(cam.getVideoTracks()[0]).takePhoto());
+      const sx = photo.width / vid.videoWidth, sy = photo.height / vid.videoHeight;
+      if (Math.abs(sx - sy) / sx < .05 && sx > 1.1) { src = photo; g = { x: gv.x * sx, y: gv.y * sy, w: gv.w * sx, h: gv.h * sy }; }
+    }
+  } catch {}
   stopCamera();
-  handleShot(card);
+  const reg = { x: g.x - g.w * m, y: g.y - g.h * m, w: g.w * (1 + 2 * m), h: g.h * (1 + 2 * m) };
+  let f = findCard(src, reg, g, refineAngles(angle), 360);
+  if (!f.shape && src !== fr) { src = fr; g = gv; f = findCard(fr, { x: gv.x - gv.w * m, y: gv.y - gv.h * m, w: gv.w * (1 + 2 * m), h: gv.h * (1 + 2 * m) }, gv, refineAngles(angle), 360); }
+  if (!f.shape) f = { a: 0, rect: g, c: { x: g.x + g.w / 2, y: g.y + g.h / 2 } };   // 못 찾으면 가이드 그대로
+  capturing = false;
+  handleShot(cardShots(src, f));
 }
 
-// 사진 파일: 가운데 카드 비율 틀을 기준으로 넓은 띠에서 테두리 탐색
+// 사진 파일: 카드가 사진 어디에 어떤 크기로 있든 찾도록 여러 크기의 틀로 시도
 async function fromFile(file) {
   stopCamera();
   const img = await createImageBitmap(file);
-  const W = 260, k = W / img.width, H = Math.round(img.height * k);
-  const c = document.createElement('canvas'); c.width = W; c.height = H;
-  const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(img, 0, 0, W, H);
-  let gh = H * .8, gw = gh * CARD_W / CARD_H;
-  if (gw > W * .8) { gw = W * .8; gh = gw * CARD_H / CARD_W; }
-  const gd = { x: (W - gw) / 2, y: (H - gh) / 2, w: gw, h: gh };
-  const e = findEdges(toGray(ctx, W, H), W, H, gd, .24);
-  const good = [e.top, e.bottom, e.left, e.right].every(s => s.score > EDGE_TH * .8) && e.right.pos - e.left.pos > W * .25;
-  const r = good ? { x: e.left.pos, y: e.top.pos, w: e.right.pos - e.left.pos, h: e.bottom.pos - e.top.pos } : { x: 0, y: 0, w: W, h: H };
-  const card = document.createElement('canvas'); card.width = CARD_W; card.height = CARD_H;
-  card.getContext('2d').drawImage(img, r.x / k, r.y / k, r.w / k, r.h / k, 0, 0, CARD_W, CARD_H);
-  handleShot(card);
+  const reg = { x: 0, y: 0, w: img.width, h: img.height };
+  let best = null;
+  for (const s of [.85, .7, .55]) {
+    let gh = img.height * s, gw = gh * CARD_W / CARD_H;
+    if (gw > img.width * s) { gw = img.width * s; gh = gw * CARD_H / CARD_W; }
+    const gv = { x: (img.width - gw) / 2, y: (img.height - gh) / 2, w: gw, h: gh };
+    const f = findCard(img, reg, gv, [-9, -6, -3, 0, 3, 6, 9], 240);
+    if (f.shape && f.ok.every(Boolean) && (!best || f.score > best.score)) best = { ...f, gv };
+  }
+  let f = best ? findCard(img, reg, best.gv, refineAngles(best.a), 480) : null;
+  if (!f || !f.shape) f = { a: 0, rect: reg, c: { x: img.width / 2, y: img.height / 2 } };
+  handleShot(cardShots(img, f));
 }
 
 // ================= 컨디션 등급 (중급 카드용) =================
@@ -1463,49 +1517,122 @@ function loadOcr() {
   })).then(async w => { await w.setParameters({ tessedit_pageseg_mode: '11' }); return w; })
     .catch(e => { ocrP = null; throw e; });
 }
-function strip(card, y0, y1, x0 = 0, x1 = 1) {
-  const sw = (x1 - x0) * CARD_W, sh = (y1 - y0) * CARD_H, sc = 1400 / sw;
-  const c = document.createElement('canvas'); c.width = 1400; c.height = Math.round(sh * sc);
+function strip(card, y0, y1, x0 = 0, x1 = 1, target = 1400) {
+  const W = card.width, H = card.height, sw = (x1 - x0) * W, sh = (y1 - y0) * H, sc = target / sw;
+  const c = document.createElement('canvas'); c.width = target; c.height = Math.round(sh * sc);
   const ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.filter = 'grayscale(1) contrast(1.6)';
-  ctx.drawImage(card, x0 * CARD_W, y0 * CARD_H, sw, sh, 0, 0, c.width, c.height);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.filter = 'grayscale(1) contrast(1.8)';
+  ctx.drawImage(card, x0 * W, y0 * H, sw, sh, 0, 0, c.width, c.height);
   return c;
 }
-function parseNumber(text) {
-  const t = text.replace(/[|\\]/g, '/');
-  const m = t.match(/\b([A-Z]{2})?([0-9OoIlS]{1,3})\s*\/\s*([A-Z]{2})?([0-9OoIlS]{2,3})\b/);
-  if (!m) return null;
-  const fix = s => s.replace(/[Oo]/g, '0').replace(/[Il]/g, '1').replace(/S/g, '5');
-  const num = m[1] ? m[1] + fix(m[2]) : String(+fix(m[2]));
-  return { num, total: +fix(m[4]), raw: m[0] };
-}
-async function readCard(card) {
-  const w = await loadOcr();
-  const top = (await w.recognize(strip(card, .015, .13, .03, .97))).data.text;
-  const bot = (await w.recognize(strip(card, .86, .985))).data.text;
-  let sp = speciesOfCard(top), no = parseNumber(bot);
-  if (!sp || !no) {                                   // 부족하면 카드 전체를 한 번 더
-    const all = (await w.recognize(strip(card, 0, 1))).data.text;
-    sp = sp || speciesOfCard(all); no = no || parseNumber(all);
+// 카드 번호 읽기. "39/132", 슬래시를 1·7·l로 잘못 읽은 "391132"도 실제 세트 장수와 맞으면 39/132로 본다.
+function parseNumber(text, officials) {
+  const t = (text || '').replace(/[|\\]/g, '/').replace(/\s+/g, ' ');
+  const m = t.match(/(?:^|[^0-9A-Z])([A-Z]{2})?(\d{1,3})\s*\/\s*([A-Z]{2})?(\d{2,3})(?!\d)/);
+  if (m) return { num: m[1] ? m[1] + m[2] : String(+m[2]), total: +m[4], raw: m[0].trim() };
+  if (officials) for (const run of t.match(/\d{4,7}/g) || []) {
+    for (const skip of [1, 0]) for (let i = 1; i <= 3 && i < run.length - 1; i++) {
+      if (skip && !/[17]/.test(run[i])) continue;
+      const a = run.slice(0, i), b = run.slice(i + skip);
+      if (b.length >= 2 && b.length <= 3 && officials.has(+b) && +a >= 1 && +a <= +b + 120) return { num: String(+a), total: +b, raw: run, guess: true };
+    }
   }
-  return { sp, no, text: (top + ' ' + bot).replace(/\s+/g, ' ').trim() };
+  return null;
+}
+async function ocrText(w, canvas, params) { await w.setParameters(params); return (await w.recognize(canvas)).data.text; }
+const P_TEXT = { tessedit_pageseg_mode: '11', tessedit_char_whitelist: '' };
+const P_NUM = { tessedit_pageseg_mode: '11', tessedit_char_whitelist: '0123456789/TGSVH' };
+async function readCard(card) {
+  const w = await loadOcr(), hi = card.hi || card;
+  const officials = new Set((await api('/sets', {}, true).catch(() => [])).map(x => x.cardCount?.official).filter(Boolean));
+  const top = await ocrText(w, strip(hi, .015, .13, .03, .97, 1600), P_TEXT);
+  let no = null, numText = '';
+  // 번호는 시대마다 왼쪽 아래(최신)·오른쪽 아래(옛날)에 있다 → 따로 크게 확대해서 숫자만 읽기
+  for (const [x0, x1] of [[0, .5], [.5, 1]]) {
+    const tx = await ocrText(w, strip(hi, .88, .99, x0, x1, 1500), P_NUM);
+    numText += ' ' + tx;
+    if ((no = parseNumber(tx, officials))) break;
+  }
+  let sp = speciesOfCard(top);
+  if (!sp || !no) {                                   // 부족하면 카드 전체를 한 번 더
+    const all = await ocrText(w, strip(hi, 0, 1, 0, 1, 1400), P_TEXT);
+    sp = sp || speciesOfCard(all); no = no || parseNumber(all, officials);
+  }
+  return { sp, no, name: top.replace(/\s+/g, ' ').trim(), text: (top + ' ' + numText).replace(/\s+/g, ' ').trim() };
+}
+// ---------- 그림 비교 ----------
+// 카드 그림 영역을 16×12 색 격자로 줄이고 채널별로 밝기·대비를 맞춘 뒤 비교 (조명 차이에 덜 민감)
+function artSig(src, W, H) {
+  const c = document.createElement('canvas'); c.width = 16; c.height = 12;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(src, W * .08, H * .1, W * .84, H * .42, 0, 0, 16, 12);
+  const d = x.getImageData(0, 0, 16, 12).data, n = 16 * 12, out = new Float32Array(n * 3);
+  for (let ch = 0; ch < 3; ch++) {
+    let m = 0, v = 0;
+    for (let i = 0; i < n; i++) m += d[i * 4 + ch];
+    m /= n;
+    for (let i = 0; i < n; i++) v += (d[i * 4 + ch] - m) ** 2;
+    const sd = Math.sqrt(v / n) || 1;
+    for (let i = 0; i < n; i++) out[i * 3 + ch] = (d[i * 4 + ch] - m) / sd;
+  }
+  return out;
+}
+const sigDist = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+function loadImg(url) {
+  return new Promise((ok, no) => { if (!url) return no(); const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = no; i.src = url; setTimeout(no, 8000); });
+}
+async function rankByArt(shot, cands) {
+  const me = artSig(shot, shot.width, shot.height);
+  const res = await Promise.all(cands.slice(0, 60).map(async c => {
+    try { const im = await loadImg(c.images.small); return { c, d: sigDist(me, artSig(im, im.naturalWidth, im.naturalHeight)) }; }
+    catch { return { c, d: Infinity }; }   // 이미지가 없거나 CORS로 못 읽으면 순위에서 제외
+  }));
+  return res.sort((a, b) => a.d - b.d);
 }
 
-async function lookup({ sp, no }) {
-  let list = [];
+// 카드 이름 단어가 판독 글자에 얼마나 들어 있는지 (0~1)
+function nameScore(name, text) {
+  const toks = norm(name).replace(/'/g, '').split(' ').filter(t => t.length > 1 && !['ex', 'gx', 'v'].includes(t));
+  const T = norm(text).replace(/'/g, '');
+  return toks.length ? toks.filter(t => T.includes(t)).length / toks.length : 0;
+}
+// 번호로 찾고 이름으로 확인. 번호+이름이 모두 맞을 때만 자동 확정, 아니면 후보를 보여준다.
+async function lookup(info, shot) {
+  const r = await lookupByText(info);
+  // 확정 못 했으면 후보 그림과 찍은 카드 그림을 비교해 순위를 다시 매긴다
+  if (!r.sure && shot && r.list.length > 1) {
+    const ranked = await rankByArt(shot, r.list);
+    const [a, b] = ranked;
+    if (a && isFinite(a.d)) {
+      r.list = [...ranked.map(x => x.c), ...r.list.filter(c => !ranked.some(x => x.c === c))];
+      r.art = { best: +a.d.toFixed(2), second: b && isFinite(b.d) ? +b.d.toFixed(2) : null };
+      // 절대 거리도 가깝고, 2등보다 확실히 가까울 때만 확정 (같은 그림의 재판 카드면 후보로 남김)
+      if (a.d < .75 && (!b || !isFinite(b.d) || a.d < b.d * .65)) r.sure = true;
+    }
+  }
+  if (r.sure && r.list[0]?.brief) r.list[0] = remember([await fetchCard(r.list[0].id)])[0];
+  return r;
+}
+async function lookupByText(info) {
+  const { sp, no } = info, text = info.name || info.text || '';
   if (no) {
-    // 인쇄된 총 장수(165 등)가 같은 세트들에서 "세트ID-번호" 카드를 직접 조회
-    const sets = no.total ? (await api('/sets')).filter(x => !isPocket(x.id) && x.cardCount?.official === no.total).slice(-15) : [];
+    const sets = no.total ? (await api('/sets', {}, true)).filter(x => !isPocket(x.id) && x.cardCount?.official === no.total).slice(-20) : [];
     const ids = [...new Set(sets.flatMap(x => [`${x.id}-${no.num}`, `${x.id}-${no.num.padStart(3, '0')}`]))];
-    list = (await Promise.all(ids.map(id => fetchCard(id).catch(() => null)))).filter(Boolean).reverse();
-    if (sp) { const hit = list.filter(c => speciesOfCard(c.name)?.id === sp.id); if (hit.length) list = hit; }
+    let list = remember((await Promise.all(ids.map(id => fetchCard(id).catch(() => null)))).filter(Boolean));
+    list.sort((a, b) => nameScore(b.name, text) - nameScore(a.name, text));
+    if (list.length) {
+      const top = nameScore(list[0].name, text), second = list[1] ? nameScore(list[1].name, text) : -1;
+      const sure = top >= .99 && top > second || (list.length === 1 && (top >= .5 || (sp && speciesOfCard(list[0].name)?.id === sp.id)));
+      return { list, sure };
+    }
   }
-  if (!list.length && sp) {
-    const same = c => !no || String(c.localId).replace(/^0+/, '') === no.num.replace(/^0+/, '');
-    list = await cardsOfSpecies(sp, same);
-    if (!list.length && no) list = await cardsOfSpecies(sp);
+  if (sp) {
+    const briefs = await speciesBriefs(sp);
+    const ranked = briefs.map(b => ({ b, s: nameScore(b.name, text) })).sort((a, b) => b.s - a.s).slice(0, 60);
+    return { list: ranked.map(r => briefCard(r.b)), sure: false };
   }
-  return remember(list);
+  return { list: [], sure: false };
 }
 
 // 찍힌 카드를 어디로 보낼지: 등급 측정 중이면 앞면 저장 → 뒷면 → 등급, 아니면 판독
@@ -1524,22 +1651,28 @@ async function analyze(card) {
   document.getElementById('guide').classList.add('hidden');
   box.insertAdjacentHTML('beforeend', '<div class="laser"></div>');
   document.getElementById('smsg').textContent = '카드 판독 중…';
-  let info;
+  let info, res = { list: [], sure: false };
   try { info = await readCard(card); } catch (e) { info = { sp: null, no: null, text: '', err: e.message }; }
-  let list = [];
-  try { if (info.sp || info.no) list = await lookup(info); } catch (e) { info.err = e.message; }
+  try { if (info.sp || info.no) res = await lookup(info, card); } catch (e) { info.err = e.message; }
   box.querySelector('.laser')?.remove();
-  document.getElementById('smsg').textContent = list.length ? '찾았어요!' : '카드를 알아보지 못했어요';
+  const list = res.list;
+  document.getElementById('smsg').textContent = res.sure ? '찾았어요!' : list.length ? '어떤 카드인지 골라주세요' : '카드를 알아보지 못했어요';
   const again = `<button class="ghost" onclick="renderScan()">↻ 다시 스캔</button>`;
-  const read = `<p class="muted">읽은 정보: ${info.sp ? esc(info.sp.ko) + ' (' + esc(info.sp.en) + ')' : '이름 ?'} · ${info.no ? esc(info.no.raw) : '번호 ?'}${info.err ? ' · ' + esc(info.err) : ''}</p>`;
+  const read = `<p class="muted">읽은 정보: ${info.sp ? esc(info.sp.ko) + ' (' + esc(info.sp.en) + ')' : '이름 ?'} · ${info.no ? esc(info.no.num + '/' + info.no.total) + (info.no.guess ? ' (추정)' : '') : '번호 ?'}${info.err ? ' · ' + esc(info.err) : ''}</p>`;
   if (!list.length) {
-    out.innerHTML = `<div class="card">${read}<p>번호(카드 왼쪽 아래 “199/165” 같은 숫자)가 잘 보이게, 빛 반사 없이 다시 찍어보세요.</p>
+    out.innerHTML = `<div class="card">${read}<p>카드 아래쪽 번호(예: 39/132)와 위쪽 이름이 반사 없이 또렷하게 보이게 다시 찍어보세요. 카드를 틀보다 조금 작게 두면 잘 잡혀요.</p>
       <div class="row">${again}${info.sp ? `<button data-sp="${esc(info.sp.ko)}">${esc(info.sp.ko)} 카드 목록에서 고르기</button>` : ''}</div></div>`;
     return;
   }
-  if (list.length === 1) return reveal(list[0], card);
-  out.innerHTML = `<div class="card">${read}<h2>어떤 카드인가요?</h2><div class="grid" id="cands">${list.slice(0, 24).map(c => tileHtml(c).replace('data-card=', 'data-pick=')).join('')}</div><div class="row" style="margin-top:10px">${again}</div></div>`;
-  document.getElementById('cands').onclick = e => { const t = e.target.closest('[data-pick]'); if (t) { e.stopPropagation(); reveal(cardIndex.get(t.dataset.pick), card); } };
+  if (res.sure) return reveal(list[0], card);
+  out.innerHTML = `<div class="card">${read}<h2>어떤 카드인가요?</h2><p class="muted" style="margin-top:0">${info.no ? '번호는 맞는데 이름이 확실하지 않아요.' : '번호를 못 읽어서 이름이 비슷한 카드를 모았어요.'} 위 사진과 같은 카드를 눌러주세요.</p>
+    <div class="grid" id="cands">${list.slice(0, 30).map(c => tileHtml(c).replace('data-card=', 'data-pick=')).join('')}</div><div class="row" style="margin-top:10px">${again}</div></div>`;
+  document.getElementById('cands').onclick = async e => {
+    const t = e.target.closest('[data-pick]'); if (!t) return;
+    e.stopPropagation(); t.style.opacity = .5;
+    const c = cardIndex.get(t.dataset.pick);
+    reveal(c && !c.brief ? c : remember([await fetchCard(t.dataset.pick)])[0], card);
+  };
 }
 
 // ---------- 효과음·진동 ----------
